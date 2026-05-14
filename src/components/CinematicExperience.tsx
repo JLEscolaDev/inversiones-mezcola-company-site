@@ -56,7 +56,6 @@ export function CinematicExperience({
 }: Props) {
   const sceneList = useMemo(() => [hero, ...scenes], [hero, scenes]);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [activeTransitionIndex, setActiveTransitionIndex] = useState<number | null>(null);
   const [playToken, setPlayToken] = useState(0);
@@ -83,26 +82,22 @@ export function CinematicExperience({
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const desktop = window.matchMedia('(min-width: 1024px)');
 
     const update = () => {
       setReducedMotion(reduced.matches);
-      setIsDesktop(desktop.matches);
     };
 
     update();
     reduced.addEventListener('change', update);
-    desktop.addEventListener('change', update);
 
     return () => {
       reduced.removeEventListener('change', update);
-      desktop.removeEventListener('change', update);
     };
   }, []);
 
   useEffect(() => {
     const target = sceneContainerRef.current;
-    if (!target || !isDesktop || reducedMotion) return;
+    if (!target || reducedMotion) return;
 
     const animateScene = () => {
       const image = target.querySelector('.js-scene-image');
@@ -118,10 +113,10 @@ export function CinematicExperience({
     };
 
     animateScene();
-  }, [currentSceneIndex, isDesktop, reducedMotion]);
+  }, [currentSceneIndex, reducedMotion]);
 
   useEffect(() => {
-    if (!isDesktop || reducedMotion) return;
+    if (reducedMotion) return;
 
     const goNext = () => {
       if (isLocked) return;
@@ -144,9 +139,11 @@ export function CinematicExperience({
       type: 'wheel,touch,pointer',
       tolerance: 18,
       preventDefault: true,
+      // Different devices/browsers report scroll/swipe direction differently.
+      // Treat both vertical directions as "next" to keep step navigation reliable.
       onDown: goNext,
+      onUp: goNext,
       // Disable accidental up-scroll jumps; previous section uses explicit UI control.
-      onUp: () => {},
     });
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -165,7 +162,7 @@ export function CinematicExperience({
       observer.kill();
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [currentSceneIndex, isDesktop, isLocked, reducedMotion, sceneList.length, transitions]);
+  }, [currentSceneIndex, isLocked, reducedMotion, sceneList.length, transitions]);
 
   const onTransitionEnded = () => {
     if (pendingDirection === 1) {
@@ -261,7 +258,7 @@ export function CinematicExperience({
   const activeScene = sceneList[currentSceneIndex];
 
   const onUpButtonClick = () => {
-    if (!isDesktop || reducedMotion) return;
+    if (reducedMotion) return;
     if (activeTransitionIndex !== null) return;
     if (isLocked) return;
     if (currentSceneIndex <= 0) return;
@@ -282,7 +279,7 @@ export function CinematicExperience({
         </div>
       </div>
 
-      {isDesktop && !reducedMotion ? (
+      {!reducedMotion ? (
         <div className={styles.desktopStage} ref={sceneContainerRef}>
           <div className={`${styles.manualFadeLayer} ${isManualFading ? 'isVisible' : ''}`.trim()} />
           {renderScene(activeScene, currentSceneIndex === 0)}
@@ -311,8 +308,8 @@ export function CinematicExperience({
         </div>
       ) : (
         <div className={styles.track}>
-          {sceneList.map((scene, idx) => (
-            <div key={scene.id}>{renderScene(scene, idx === 0)}</div>
+          {sceneList.map((scene) => (
+            <div key={scene.id}>{renderScene(scene, scene.id === hero.id)}</div>
           ))}
         </div>
       )}

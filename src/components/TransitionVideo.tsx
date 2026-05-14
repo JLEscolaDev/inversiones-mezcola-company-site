@@ -19,7 +19,15 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
   const [hasError, setHasError] = useState(false);
   const [outroOpacity, setOutroOpacity] = useState(0);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
+  const [isPlaybackStarted, setIsPlaybackStarted] = useState(false);
+  const hasCompletedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const completeTransition = () => {
+    if (hasCompletedRef.current) return;
+    hasCompletedRef.current = true;
+    onEnded?.();
+  };
 
   useEffect(() => {
     if (reducedMotion || hasError) return;
@@ -31,7 +39,9 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            void node.play().catch(() => {
+            void node.play().then(() => {
+              setIsPlaybackStarted(true);
+            }).catch(() => {
               setHasError(true);
             });
           } else {
@@ -45,6 +55,23 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
     observer.observe(node);
     return () => observer.disconnect();
   }, [reducedMotion, hasError]);
+
+  useEffect(() => {
+    hasCompletedRef.current = false;
+  }, [videoSrc]);
+
+  useEffect(() => {
+    if (!onEnded) return;
+    if (reducedMotion) return;
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (!isPlaybackStarted || hasError) {
+        completeTransition();
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(fallbackTimer);
+  }, [hasError, isPlaybackStarted, onEnded, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion || hasError) return;
@@ -67,7 +94,7 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [reducedMotion, hasError, videoSrc, onEnded]);
+  }, [reducedMotion, hasError, videoSrc]);
 
   if (reducedMotion) return null;
 
@@ -90,8 +117,11 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
           playsInline
           autoPlay
           preload="metadata"
-          onEnded={onEnded}
-          onPlaying={() => setIsVideoVisible(true)}
+          onEnded={completeTransition}
+          onPlaying={() => {
+            setIsPlaybackStarted(true);
+            setIsVideoVisible(true);
+          }}
           onPause={() => {
             if (!onEnded) setIsVideoVisible(false);
           }}
