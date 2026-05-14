@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# INVERSIONES MEZCOLÁ SL - Cinematic Prototype
 
-## Getting Started
+Production-oriented Next.js App Router prototype for a cinematic ES/EN luxury website.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js (App Router) + TypeScript
+- CSS Modules + global CSS
+- GSAP ScrollTrigger
+- Lenis
+- next/font
+- Locale metadata + canonical/hreflang
+- `sitemap.ts` + `robots.ts`
+- JSON-LD (`Organization` + `WebSite`)
+- Vercel-ready
+
+## Project Structure
+
+```txt
+src/
+  app/
+    [locale]/
+      layout.tsx
+      page.tsx
+    api/lead/route.ts
+    layout.tsx
+    page.tsx
+    robots.ts
+    sitemap.ts
+  components/
+    CinematicExperience.tsx
+    CinematicExperience.module.css
+    ContactForm.tsx
+    LanguageSwitcher.tsx
+    Scene.tsx
+    SeoJsonLd.tsx
+    TransitionVideo.tsx
+  lib/
+    assets.ts
+    content.ts
+    i18n.ts
+    seo.ts
+styles/
+  globals.css
+public/
+  images/
+  videos/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Asset Placement (exact filenames)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Put approved assets here **without renaming**:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Images:
 
-## Learn More
+- `/public/images/Photo1Forest.png`
+- `/public/images/Photo2Lake.png`
+- `/public/images/Photo3Waterfall.png`
+- `/public/images/Photo4House.png`
+- `/public/images/Photo5Room1.png`
+- `/public/images/Photo6Room2.png`
+- `/public/images/Photo7Room3.png`
+- `/public/images/Photo8TableAndPaper.png`
 
-To learn more about Next.js, take a look at the following resources:
+Videos:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `/public/videos/Transition1ForestToLake.mp4`
+- `/public/videos/Transition2LakeToWaterfall.mp4`
+- `/public/videos/Transition3WaterfallToHouse.mp4`
+- `/public/videos/Transition4HouseToRoom1.mp4`
+- `/public/videos/Transition5Room1ToRoom2Wall.mp4`
+- `/public/videos/Transition6Room2ToRoom3ThroughAir.mp4`
+- `/public/videos/Transition7Room3ToFinalOfficePaper.mp4`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Asset manifest is defined in [`src/lib/assets.ts`](src/lib/assets.ts).
 
-## Deploy on Vercel
+## Run Locally
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm install
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Open [http://localhost:3000](http://localhost:3000).
+
+## Build
+
+```bash
+npm run build
+npm run start
+```
+
+## Deploy to Vercel
+
+1. Push this repository to GitHub.
+2. Import the repo in Vercel.
+3. Build command: `npm run build`
+4. Output: default Next.js output (auto-detected by Vercel).
+5. Configure production domains:
+   - `inversionesmezcola.es` (canonical)
+   - `www.inversionesmezcola.es`
+6. Keep canonical on non-www (`https://inversionesmezcola.es`).
+
+## Known Limitations
+
+- Transition videos are opacity-driven and viewport-triggered (not frame-perfect scroll scrubbing) to prioritize Safari reliability.
+- If videos fail to load, scenes still render with still image backgrounds and readable semantic content.
+- `/api/lead` currently returns captured payload JSON; wire it to CRM/email provider for production.
+

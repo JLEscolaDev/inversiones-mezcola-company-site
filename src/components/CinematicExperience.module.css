@@ -1,0 +1,629 @@
+.viewport {
+  position: relative;
+  background: #0f0f0f;
+  color: #f2efe9;
+}
+
+.track {
+  position: relative;
+}
+
+.desktopStage {
+  position: relative;
+  height: 100svh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.scene {
+  position: relative;
+  min-height: 100svh;
+  min-height: 100vh;
+  overflow: hidden;
+  display: grid;
+  align-items: end;
+  background: #111;
+}
+
+.sceneMedia {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.sceneMedia img {
+  object-fit: cover;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, rgba(0, 0, 0, 0.28) 35%, rgba(0, 0, 0, 0.68) 100%);
+}
+
+.floatingLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.contentGrid {
+  position: relative;
+  z-index: 2;
+  width: min(1240px, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: 0 0 10svh;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 1.5rem;
+}
+
+.copyBlock {
+  grid-column: 1 / span 5;
+  max-width: 36rem;
+  min-width: 0;
+  opacity: 1;
+  transform: none;
+  will-change: transform, opacity;
+}
+
+.copyBlockRight {
+  grid-column: 8 / span 5;
+  justify-self: end;
+  align-self: center;
+  margin-top: -3svh;
+  margin-top: -3vh;
+  max-width: min(34rem, 40vw);
+}
+
+.technologyIdentity {
+  position: absolute;
+  color: #f2efe9;
+  z-index: 4;
+  max-width: 34rem;
+  pointer-events: auto;
+}
+
+.technologyIdentityTech {
+  left: clamp(2rem, 6vw, 7rem);
+  top: clamp(11rem, 26vh, 22rem);
+  max-width: 34rem;
+}
+
+.technologyIdentityCapital {
+  right: clamp(2rem, 6vw, 7rem);
+  bottom: clamp(1.2rem, 3.8vh, 3.5rem);
+  text-align: right;
+  max-width: min(26rem, 30vw);
+}
+
+.technologyKicker {
+  margin: 0;
+  font-size: clamp(1.42rem, 2.4vw, 2.2rem);
+  line-height: 1.08;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  text-transform: none;
+}
+
+.technologyName {
+  margin: 0.9rem 0 0;
+  font-size: clamp(1.2rem, 2.25vw, 1.85rem);
+  line-height: 1.08;
+  font-weight: 500;
+}
+
+.technologyIdentityCapital .technologyKicker {
+  font-size: clamp(0.98rem, 1.42vw, 1.26rem);
+  line-height: 1.16;
+  font-family: var(--font-body), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.004em;
+}
+
+.technologyIdentityCapital .technologyName {
+  margin-top: 0.5rem;
+  font-size: clamp(0.88rem, 1.22vw, 1.1rem);
+  font-family: var(--font-body), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  opacity: 0.88;
+}
+
+.scene[data-scene='technology'] .copyBlockRight {
+  position: relative;
+  right: auto;
+  top: auto;
+  grid-column: 8 / span 5;
+  justify-self: end;
+  align-self: center;
+  margin-top: -3svh;
+  margin-top: -3vh;
+  max-width: min(34rem, 40vw);
+  z-index: 2;
+  opacity: 1;
+  transform: none;
+}
+
+.technologyLink {
+  margin-top: 1rem;
+  display: inline-block;
+  color: #f2efe9;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(242, 239, 233, 0.58);
+  padding-bottom: 0.15rem;
+  font-size: 0.96rem;
+  letter-spacing: 0.03em;
+}
+
+.copyBlock.js-initial-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.eyebrow {
+  display: block;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  margin-bottom: 0.65rem;
+  color: rgba(242, 239, 233, 0.78);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(2rem, 4.6vw, 4.2rem);
+  line-height: 0.95;
+  font-weight: 500;
+}
+
+.body {
+  margin: 1.1rem 0 0;
+  max-width: 34ch;
+  font-size: clamp(0.98rem, 1.3vw, 1.12rem);
+  line-height: 1.52;
+  color: rgba(242, 239, 233, 0.88);
+}
+
+.bodySecondary {
+  margin: 0.95rem 0 0;
+  max-width: 40ch;
+  font-size: clamp(0.88rem, 1.06vw, 0.98rem);
+  line-height: 1.48;
+  color: rgba(242, 239, 233, 0.74);
+}
+
+.secondaryBlock {
+  margin-top: 1.25rem;
+  max-width: 42ch;
+}
+
+.secondaryTitle {
+  margin: 0;
+  font-size: clamp(0.9rem, 1.12vw, 1.02rem);
+  font-family: var(--font-body), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(242, 239, 233, 0.82);
+}
+
+.secondaryBody {
+  margin: 0.58rem 0 0;
+  font-size: clamp(0.88rem, 1.02vw, 0.98rem);
+  line-height: 1.5;
+  color: rgba(242, 239, 233, 0.76);
+}
+
+.transition {
+  position: relative;
+  min-height: 100svh;
+  min-height: 100vh;
+  background: #0e0d0c;
+  overflow: hidden;
+}
+
+.transitionVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+.isReady {
+  opacity: 1;
+}
+
+.transitionOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.36);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.transitionFixedLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.topBar {
+  position: fixed;
+  top: 1.25rem;
+  left: 0;
+  width: 100%;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.topBarInner {
+  width: min(1240px, calc(100% - 3rem));
+  margin: 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.9rem;
+  pointer-events: all;
+}
+
+.langLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(242, 239, 233, 0.78);
+}
+
+.langLink {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f2efe9;
+  border: 1px solid rgba(242, 239, 233, 0.52);
+  padding: 0.42rem 0.7rem;
+}
+
+.upButton {
+  position: fixed;
+  left: 50%;
+  top: 1.1rem;
+  transform: translateX(-50%);
+  z-index: 35;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid rgba(242, 239, 233, 0.62);
+  background: rgba(5, 5, 5, 0.48);
+  color: #f2efe9;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.manualFadeLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  pointer-events: none;
+  background: #000;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.manualFadeLayer.isVisible {
+  opacity: 0.32;
+}
+
+.contactCard {
+  margin-top: 1.8rem;
+  border: 1px solid rgba(232, 228, 220, 0.16);
+  background: rgba(13, 15, 14, 0.52);
+  border-radius: 14px;
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  max-width: min(38rem, 42vw);
+}
+
+.fieldRow {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field label {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(232, 228, 220, 0.9);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  border: 1px solid rgba(232, 228, 220, 0.16);
+  background: rgba(232, 228, 220, 0.06);
+  color: #e8e4dc;
+  padding: 0.64rem 0.7rem;
+  font: inherit;
+  border-radius: 10px;
+  transition: border-color 250ms ease, box-shadow 250ms ease, background-color 250ms ease;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #a8924a;
+  box-shadow: 0 0 0 3px rgba(168, 146, 74, 0.18);
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: rgba(232, 228, 220, 0.7);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 8rem;
+}
+
+.submitButton {
+  margin-top: 0.9rem;
+  background: #e8e4dc;
+  color: #0d0f0e;
+  border: none;
+  padding: 0.68rem 1.2rem;
+  font-size: 0.77rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: background-color 250ms ease, color 250ms ease, transform 250ms ease;
+}
+
+.submitButton:hover {
+  background: #a8924a;
+  color: #0d0f0e;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1023px) {
+  .scene {
+    min-height: 100svh;
+    min-height: 100dvh;
+    height: auto;
+  }
+
+  .scene {
+    padding-top: 17svh;
+    padding-top: 17dvh;
+    padding-bottom: 9svh;
+    padding-bottom: 9dvh;
+  }
+
+  .transition {
+    min-height: 56svh;
+    min-height: 56dvh;
+    height: 56svh;
+    height: 56dvh;
+  }
+
+  .contentGrid {
+    width: min(100%, calc(100% - 2rem));
+    padding-bottom: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .copyBlockRight {
+    grid-column: 1 / -1;
+    justify-self: start;
+    align-self: end;
+    margin-top: 0;
+  }
+
+  .technologyIdentity {
+    position: static;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .technologyIdentityTech,
+  .technologyIdentityCapital {
+    max-width: 100%;
+    margin-bottom: 0;
+  }
+
+  .technologyIdentityCapital {
+    text-align: left;
+  }
+
+  .copyBlock {
+    grid-column: 1 / -1;
+    max-width: 100%;
+    opacity: 1;
+    transform: none;
+  }
+
+  .scene[data-scene='technology'] .copyBlockRight {
+    position: static;
+    right: auto;
+    top: auto;
+    max-width: 100%;
+  }
+
+  .scene[data-scene='technology'] .floatingLayer,
+  .scene[data-scene='capital'] .floatingLayer {
+    position: relative;
+    inset: auto;
+    width: min(100%, calc(100% - 2rem));
+    margin: 0 auto 1rem;
+    pointer-events: auto;
+  }
+
+  .title {
+    font-size: clamp(1.9rem, 9.3vw, 3.05rem);
+    line-height: 0.98;
+  }
+
+  .body {
+    margin-top: 0.86rem;
+    max-width: 34ch;
+    font-size: clamp(0.95rem, 3.5vw, 1.08rem);
+    line-height: 1.46;
+  }
+
+  .bodySecondary {
+    margin-top: 0.72rem;
+    font-size: clamp(0.84rem, 3vw, 0.98rem);
+    line-height: 1.44;
+  }
+
+  .technologyKicker {
+    font-size: clamp(1.08rem, 4.75vw, 1.5rem);
+    line-height: 1.14;
+  }
+
+  .technologyName {
+    margin-top: 0.54rem;
+    font-size: clamp(1rem, 4vw, 1.28rem);
+    line-height: 1.16;
+  }
+
+  .technologyLink {
+    margin-top: 0.76rem;
+    font-size: 0.92rem;
+  }
+
+  .secondaryBlock {
+    margin-top: 1rem;
+  }
+
+  .secondaryTitle {
+    font-size: 0.82rem;
+  }
+
+  .secondaryBody {
+    margin-top: 0.46rem;
+    font-size: 0.9rem;
+  }
+
+  .topBar {
+    top: 0.75rem;
+  }
+
+  .topBarInner {
+    width: min(100%, calc(100% - 2rem));
+  }
+
+  .upButton {
+    top: 0.8rem;
+  }
+
+  .scene[data-scene='final-contact'] {
+    min-height: auto;
+    height: auto;
+    padding-bottom: 6rem;
+  }
+
+  .scene[data-scene='final-contact'] .copyBlock {
+    max-width: 100%;
+  }
+
+  .scene[data-scene='final-contact'] .contactCard {
+    margin-top: 1.1rem;
+    width: min(100%, 32rem);
+  }
+
+  .contactCard {
+    padding: 0.95rem;
+    border-radius: 12px;
+  }
+
+  .field input,
+  .field textarea {
+    min-height: 2.7rem;
+    border-radius: 10px;
+  }
+
+  .field textarea {
+    min-height: 7.2rem;
+  }
+
+  .submitButton {
+    width: 100%;
+    border-radius: 999px;
+    padding: 0.78rem 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .contentGrid {
+    width: min(100%, calc(100% - 1.5rem));
+  }
+
+  .scene[data-scene='technology'] .floatingLayer,
+  .scene[data-scene='capital'] .floatingLayer {
+    width: min(100%, calc(100% - 1.5rem));
+    margin-bottom: 0.86rem;
+  }
+
+  .scene {
+    min-height: 100svh;
+    min-height: 100dvh;
+    height: auto;
+    padding-top: 16svh;
+    padding-top: 16dvh;
+    padding-bottom: 8svh;
+    padding-bottom: 8dvh;
+  }
+
+  .transition {
+    min-height: 52svh;
+    min-height: 52dvh;
+    height: 52svh;
+    height: 52dvh;
+  }
+
+  .scene[data-scene='final-contact'] {
+    padding-top: 14svh;
+    padding-top: 14dvh;
+    padding-bottom: 5.5rem;
+  }
+
+  .scene[data-scene='final-contact'] .contactCard {
+    margin-top: 0.95rem;
+  }
+
+  .upButton {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copyBlock {
+    opacity: 1;
+    transform: none;
+  }
+
+  .transition {
+    display: none;
+  }
+}
