@@ -257,6 +257,15 @@
   z-index: 30;
 }
 
+.transitionFixedLayer .transition {
+  min-height: 100dvh;
+  min-height: 100svh;
+  min-height: 100vh;
+  height: 100dvh;
+  height: 100svh;
+  height: 100vh;
+}
+
 .topBar {
   position: fixed;
   top: 1.25rem;

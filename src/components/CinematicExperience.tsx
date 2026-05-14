@@ -56,6 +56,7 @@ export function CinematicExperience({
 }: Props) {
   const sceneList = useMemo(() => [hero, ...scenes], [hero, scenes]);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [activeTransitionIndex, setActiveTransitionIndex] = useState<number | null>(null);
   const [playToken, setPlayToken] = useState(0);
@@ -82,16 +83,20 @@ export function CinematicExperience({
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const desktop = window.matchMedia('(min-width: 1024px)');
 
     const update = () => {
       setReducedMotion(reduced.matches);
+      setIsDesktop(desktop.matches);
     };
 
     update();
     reduced.addEventListener('change', update);
+    desktop.addEventListener('change', update);
 
     return () => {
       reduced.removeEventListener('change', update);
+      desktop.removeEventListener('change', update);
     };
   }, []);
 
@@ -134,18 +139,6 @@ export function CinematicExperience({
       setPlayToken((v) => v + 1);
     };
 
-    const observer = ScrollTrigger.observe({
-      target: window,
-      type: 'wheel,touch,pointer',
-      tolerance: 18,
-      preventDefault: true,
-      // Different devices/browsers report scroll/swipe direction differently.
-      // Treat both vertical directions as "next" to keep step navigation reliable.
-      onDown: goNext,
-      onUp: goNext,
-      // Disable accidental up-scroll jumps; previous section uses explicit UI control.
-    });
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowDown' || event.key === 'PageDown' || event.key === ' ') {
         event.preventDefault();
@@ -156,13 +149,79 @@ export function CinematicExperience({
       }
     };
 
+    let observer: ReturnType<typeof ScrollTrigger.observe> | null = null;
+    let touchStartY: number | null = null;
+
+    const canHandleTarget = (target: EventTarget | null) => {
+      const element = target instanceof HTMLElement ? target : null;
+      if (!element) return true;
+      return !element.closest('input, textarea, select, button, a');
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!canHandleTarget(event.target)) return;
+      event.preventDefault();
+      if (Math.abs(event.deltaY) < 8) return;
+      goNext();
+    };
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (!canHandleTarget(event.target)) return;
+      touchStartY = event.changedTouches[0]?.clientY ?? null;
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!canHandleTarget(event.target)) return;
+      event.preventDefault();
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!canHandleTarget(event.target)) return;
+      if (touchStartY === null) return;
+      const currentY = event.changedTouches[0]?.clientY ?? touchStartY;
+      const deltaY = touchStartY - currentY;
+      touchStartY = null;
+      if (Math.abs(deltaY) < 22) return;
+      goNext();
+    };
+
     window.addEventListener('keydown', onKeyDown);
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    if (isDesktop) {
+      observer = ScrollTrigger.observe({
+        target: window,
+        type: 'wheel,touch,pointer',
+        tolerance: 18,
+        preventDefault: true,
+        onDown: goNext,
+        onUp: goNext,
+      });
+    } else {
+      window.addEventListener('wheel', onWheel, { passive: false });
+      window.addEventListener('touchstart', onTouchStart, { passive: false });
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('touchend', onTouchEnd, { passive: false });
+    }
 
     return () => {
-      observer.kill();
       window.removeEventListener('keydown', onKeyDown);
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
+
+      if (observer) {
+        observer.kill();
+      }
+
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
     };
-  }, [currentSceneIndex, isLocked, reducedMotion, sceneList.length, transitions]);
+  }, [currentSceneIndex, isDesktop, isLocked, reducedMotion, sceneList.length, transitions]);
 
   const onTransitionEnded = () => {
     if (pendingDirection === 1) {
