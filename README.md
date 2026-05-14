@@ -1,6 +1,6 @@
 # INVERSIONES MEZCOLÁ SL - Cinematic Prototype
 
-Production-oriented Next.js App Router prototype for a cinematic ES/EN luxury website.
+Production-oriented Next.js App Router website (ES/EN), prepared for Vercel deployment with IONOS domain + email kept in IONOS.
 
 ## Stack
 
@@ -8,80 +8,16 @@ Production-oriented Next.js App Router prototype for a cinematic ES/EN luxury we
 - CSS Modules + global CSS
 - GSAP ScrollTrigger
 - Lenis
-- next/font
 - Locale metadata + canonical/hreflang
 - `sitemap.ts` + `robots.ts`
 - JSON-LD (`Organization` + `WebSite`)
-- Vercel-ready
 
-## Project Structure
-
-```txt
-src/
-  app/
-    [locale]/
-      layout.tsx
-      page.tsx
-    api/lead/route.ts
-    layout.tsx
-    page.tsx
-    robots.ts
-    sitemap.ts
-  components/
-    CinematicExperience.tsx
-    CinematicExperience.module.css
-    ContactForm.tsx
-    LanguageSwitcher.tsx
-    Scene.tsx
-    SeoJsonLd.tsx
-    TransitionVideo.tsx
-  lib/
-    assets.ts
-    content.ts
-    i18n.ts
-    seo.ts
-styles/
-  globals.css
-public/
-  images/
-  videos/
-```
-
-## Asset Placement (exact filenames)
-
-Put approved assets here **without renaming**:
-
-Images:
-
-- `/public/images/Photo1Forest.png`
-- `/public/images/Photo2Lake.png`
-- `/public/images/Photo3Waterfall.png`
-- `/public/images/Photo4House.png`
-- `/public/images/Photo5Room1.png`
-- `/public/images/Photo6Room2.png`
-- `/public/images/Photo7Room3.png`
-- `/public/images/Photo8TableAndPaper.png`
-
-Videos:
-
-- `/public/videos/Transition1ForestToLake.mp4`
-- `/public/videos/Transition2LakeToWaterfall.mp4`
-- `/public/videos/Transition3WaterfallToHouse.mp4`
-- `/public/videos/Transition4HouseToRoom1.mp4`
-- `/public/videos/Transition5Room1ToRoom2Wall.mp4`
-- `/public/videos/Transition6Room2ToRoom3ThroughAir.mp4`
-- `/public/videos/Transition7Room3ToFinalOfficePaper.mp4`
-
-Asset manifest is defined in [`src/lib/assets.ts`](src/lib/assets.ts).
-
-## Run Locally
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000).
 
 ## Build
 
@@ -90,20 +26,84 @@ npm run build
 npm run start
 ```
 
-## Deploy to Vercel
+## Environment variables
 
-1. Push this repository to GitHub.
-2. Import the repo in Vercel.
-3. Build command: `npm run build`
-4. Output: default Next.js output (auto-detected by Vercel).
-5. Configure production domains:
-   - `inversionesmezcola.es` (canonical)
+Copy `.env.example` to `.env.local` for local testing:
+
+```bash
+cp .env.example .env.local
+```
+
+Required in Vercel (Production + Preview):
+
+- `RESEND_API_KEY`
+- `LEAD_TO_EMAIL`
+- `LEAD_FROM_EMAIL`
+
+## Lead form production behavior
+
+- POST `/api/lead`
+- Honeypot anti-bot field (`website`)
+- Basic IP rate limit (5 requests/minute per IP)
+- Sends email through Resend API
+- Redirects back to `/#final-contact` after success
+
+## Security hardening
+
+Configured response headers:
+
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+## Deploy to Vercel (recommended)
+
+1. Push this repo to GitHub.
+2. In Vercel: `Add New Project` -> import repo.
+3. Framework detected as Next.js automatically.
+4. Add the 3 env vars from `.env.example`.
+5. Deploy.
+6. In Vercel project settings -> Domains, add:
+   - `inversionesmezcola.es`
    - `www.inversionesmezcola.es`
-6. Keep canonical on non-www (`https://inversionesmezcola.es`).
 
-## Known Limitations
+## IONOS DNS migration (keep domain + email, cancel web hosting)
 
-- Transition videos are opacity-driven and viewport-triggered (not frame-perfect scroll scrubbing) to prioritize Safari reliability.
-- If videos fail to load, scenes still render with still image backgrounds and readable semantic content.
-- `/api/lead` currently returns captured payload JSON; wire it to CRM/email provider for production.
+Important: do **not** delete MX/TXT/SPF/DKIM records used by your mail.
 
+At IONOS DNS Zone:
+
+1. Keep existing email records as they are:
+   - `MX` records
+   - `TXT` SPF/DKIM/DMARC
+   - any mail-related `CNAME`
+2. Remove only old web-hosting records that point to current IONOS hosting (A/AAAA/CNAME for website).
+3. Configure web records for Vercel:
+   - `A` record for root `@` -> `76.76.21.21`
+   - `CNAME` for `www` -> `cname.vercel-dns.com`
+4. Save changes and wait for propagation (usually minutes, up to 24h).
+5. In Vercel, confirm both domains show as `Valid Configuration`.
+
+## Tomorrow cutover checklist
+
+1. Vercel project deployed and healthy.
+2. Env vars set in Vercel.
+3. Domain records changed in IONOS (web only, mail untouched).
+4. Verify live URLs:
+   - `https://inversionesmezcola.es/es`
+   - `https://inversionesmezcola.es/en`
+5. Submit contact form and confirm email reception.
+6. Only then cancel IONOS web hosting subscription, keeping domain + mail plan.
+
+## Acceptance checks
+
+```bash
+npm run build
+```
+
+Expected:
+
+- build passes
+- TypeScript passes
+- localized routes (`/es`, `/en`) generated
