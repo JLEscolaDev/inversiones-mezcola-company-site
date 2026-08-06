@@ -67,6 +67,9 @@ const MOBILE_SEGMENT_SCROLL_VH = 135;
 const MOBILE_STACK_EXTRA_VH = 100;
 const MOBILE_CANVAS_MAX_DPR = 2;
 const MAX_SPRITE_CACHE_ITEMS = 8;
+const INITIAL_PRELOAD_MIN_MS = 1200;
+const INITIAL_PRELOAD_SHEETS = 6;
+const NEXT_PRELOAD_SHEETS = 2;
 
 function getSheetSrc(frames: FrameSequence, sheetIndex: number) {
   return `${frames.basePath}/sheet_${String(sheetIndex + 1).padStart(4, '0')}.jpg`;
@@ -129,6 +132,23 @@ function loadSprite(src: string, keepSrcs: Set<string>, onLoad?: (image: CanvasI
   return promise;
 }
 
+function preloadImage(src: string) {
+  return new Promise<void>((resolve) => {
+    const image = new window.Image();
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+}
+
+function prefetchSprite(src: string) {
+  const link = document.createElement('link');
+  link.rel = 'prefetch';
+  link.as = 'image';
+  link.href = src;
+  document.head.appendChild(link);
+}
+
 function drawCoverSpriteFrame(canvas: HTMLCanvasElement, image: CanvasImageSource, frames: FrameSequence, frameIndex: number) {
   const context = canvas.getContext('2d');
   if (!context) return;
@@ -183,6 +203,9 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
   const frameLayerRefs = useRef<Array<HTMLDivElement | null>>([]);
   const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
   const lastFrameRefs = useRef<number[]>([]);
+  const isPreparedRef = useRef(false);
+  const [isPreparing, setIsPreparing] = useState(true);
+  const [preloadProgress, setPreloadProgress] = useState(0);
   const segmentCount = frameSequences.length;
   const sceneCount = sceneLayers.length;
 
@@ -193,6 +216,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     let rafId = 0;
     let targetProgress = 0;
     let displayProgress = 0;
+    let cancelled = false;
 
     const getSheetSrcAt = (sequenceIndex: number, sheetIndex: number) => {
       const frames = frameSequences[sequenceIndex];
@@ -304,6 +328,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     };
 
     const requestSync = () => {
+      if (!isPreparedRef.current) return;
       updateTargetFromScroll();
       if (rafId !== 0) return;
       rafId = window.requestAnimationFrame(renderProgress);
@@ -312,18 +337,88 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     lastFrameRefs.current = frameSequences.map(() => -1);
     drawFrameAt(0, 0);
 
+    const setLockedScroll = (locked: boolean) => {
+      document.documentElement.style.overflow = locked ? 'hidden' : '';
+      document.body.style.overflow = locked ? 'hidden' : '';
+      document.body.style.overscrollBehavior = locked ? 'none' : '';
+    };
+
+    const prepareInitialFrames = async () => {
+      const firstFrames = frameSequences[0];
+      if (!firstFrames) return;
+
+      setLockedScroll(true);
+      window.scrollTo(0, 0);
+
+      const criticalSrcs = new Set<string>();
+      for (let sheetIndex = 0; sheetIndex < Math.min(INITIAL_PRELOAD_SHEETS, firstFrames.sheetCount); sheetIndex += 1) {
+        criticalSrcs.add(getSheetSrc(firstFrames, sheetIndex));
+      }
+
+      const nextFrames = frameSequences[1];
+      if (nextFrames) {
+        for (let sheetIndex = 0; sheetIndex < Math.min(NEXT_PRELOAD_SHEETS, nextFrames.sheetCount); sheetIndex += 1) {
+          criticalSrcs.add(getSheetSrc(nextFrames, sheetIndex));
+        }
+      }
+
+      const preloadTargets = [...criticalSrcs];
+      const posterTargets = posterSrcs.slice(0, 2);
+      const totalTargets = preloadTargets.length + posterTargets.length;
+      let completedTargets = 0;
+      const markComplete = () => {
+        completedTargets += 1;
+        if (!cancelled) {
+          setPreloadProgress(Math.round((completedTargets / totalTargets) * 100));
+        }
+      };
+
+      const startedAt = window.performance.now();
+      await Promise.all([
+        ...preloadTargets.map((src) => loadSprite(src, criticalSrcs).then(() => markComplete())),
+        ...posterTargets.map((src) => preloadImage(src).then(() => markComplete())),
+      ]);
+
+      frameSequences.forEach((frames, sequenceIndex) => {
+        const maxPrefetchSheets = sequenceIndex <= 1 ? Math.min(frames.sheetCount, 18) : Math.min(frames.sheetCount, 6);
+        for (let sheetIndex = 0; sheetIndex < maxPrefetchSheets; sheetIndex += 1) {
+          const src = getSheetSrc(frames, sheetIndex);
+          if (!criticalSrcs.has(src)) {
+            prefetchSprite(src);
+          }
+        }
+      });
+
+      const elapsed = window.performance.now() - startedAt;
+      if (elapsed < INITIAL_PRELOAD_MIN_MS) {
+        await new Promise((resolve) => window.setTimeout(resolve, INITIAL_PRELOAD_MIN_MS - elapsed));
+      }
+
+      if (cancelled) return;
+      drawFrameAt(0, 0);
+      isPreparedRef.current = true;
+      setIsPreparing(false);
+      setLockedScroll(false);
+      requestSync();
+    };
+
+    prepareInitialFrames();
+
     window.addEventListener('scroll', requestSync, { passive: true });
     window.addEventListener('resize', requestSync);
-    requestSync();
 
     return () => {
+      cancelled = true;
       window.removeEventListener('scroll', requestSync);
       window.removeEventListener('resize', requestSync);
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
       }
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.overscrollBehavior = '';
     };
-  }, [frameSequences, sceneCount, segmentCount]);
+  }, [frameSequences, posterSrcs, sceneCount, segmentCount]);
 
   return (
     <div
@@ -339,7 +434,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
               sceneLayerRefs.current[index] = node;
             }}
             className={styles.mobileSceneLayer}
-            style={{ zIndex: (sceneLayers.length - index) * 2 }}
+            style={{ opacity: index === 0 ? 1 : 0, zIndex: (sceneLayers.length - index) * 2 }}
           >
             {sceneLayer}
           </div>
@@ -353,6 +448,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
             className={styles.mobileVideoLayer}
             style={{
               backgroundImage: `url(${posterSrcs[index]})`,
+              opacity: 0,
               zIndex: (sceneLayers.length - index) * 2 - 1,
             }}
           >
@@ -365,6 +461,17 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
           </div>
         ))}
       </div>
+      {isPreparing ? (
+        <div className={styles.mobilePreloadOverlay} role="status" aria-live="polite">
+          <div className={styles.mobilePreloadPanel}>
+            <p className={styles.mobilePreloadKicker}>Preparando experiencia</p>
+            <p className={styles.mobilePreloadText}>Cargando vídeo en alta resolución...</p>
+            <div className={styles.mobilePreloadTrack} aria-hidden="true">
+              <span style={{ transform: `scaleX(${Math.max(0.08, preloadProgress / 100)})` }} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
