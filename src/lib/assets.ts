@@ -21,13 +21,13 @@ export const assets = {
   },
 
   frames: {
-    forestToLake: { basePath: '/sprites-mobile-v3/forestToLake', count: 92, sheetCount: 46, frameWidth: 1916, frameHeight: 1080, columns: 2, rows: 1 },
-    lakeToWaterfall: { basePath: '/sprites-mobile-v3/lakeToWaterfall', count: 92, sheetCount: 46, frameWidth: 1916, frameHeight: 1080, columns: 2, rows: 1 },
-    waterfallToHouse: { basePath: '/sprites-mobile-v3/waterfallToHouse', count: 92, sheetCount: 46, frameWidth: 1916, frameHeight: 1080, columns: 2, rows: 1 },
-    houseToRoom1: { basePath: '/sprites-mobile-v3/houseToRoom1', count: 92, sheetCount: 46, frameWidth: 1916, frameHeight: 1080, columns: 2, rows: 1 },
-    room1ToRoom2: { basePath: '/sprites-mobile-v3/room1ToRoom2', count: 127, sheetCount: 64, frameWidth: 1914, frameHeight: 1080, columns: 2, rows: 1 },
-    room2ToRoom3: { basePath: '/sprites-mobile-v3/room2ToRoom3', count: 184, sheetCount: 92, frameWidth: 1914, frameHeight: 1080, columns: 2, rows: 1 },
-    room3ToFinal: { basePath: '/sprites-mobile-v3/room3ToFinal', count: 92, sheetCount: 46, frameWidth: 1916, frameHeight: 1080, columns: 2, rows: 1 },
+    forestToLake: { basePath: '/sprites-mobile-v2/forestToLake', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    lakeToWaterfall: { basePath: '/sprites-mobile-v2/lakeToWaterfall', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    waterfallToHouse: { basePath: '/sprites-mobile-v2/waterfallToHouse', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    houseToRoom1: { basePath: '/sprites-mobile-v2/houseToRoom1', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room1ToRoom2: { basePath: '/sprites-mobile-v2/room1ToRoom2', count: 127, sheetCount: 32, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room2ToRoom3: { basePath: '/sprites-mobile-v2/room2ToRoom3', count: 184, sheetCount: 46, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room3ToFinal: { basePath: '/sprites-mobile-v2/room3ToFinal', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
   },
 } as const;
 
