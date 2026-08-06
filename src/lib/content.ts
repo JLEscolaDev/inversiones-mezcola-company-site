@@ -1,4 +1,4 @@
-import { assets, type ImageKey, type VideoKey } from '@/lib/assets';
+import { assets, type FrameSequence, type ImageKey, type VideoKey } from '@/lib/assets';
 import type { Locale } from '@/lib/i18n';
 
 export type SceneTone = 'mystery' | 'revelation' | 'ascent' | 'arrival' | 'precision' | 'systems' | 'power' | 'closure';
@@ -250,4 +250,8 @@ export function resolveImage(key: ImageKey): string {
 
 export function resolveVideo(key: VideoKey): string {
   return assets.videos[key];
+}
+
+export function resolveFrameSequence(key: VideoKey): FrameSequence {
+  return assets.frames[key];
 }

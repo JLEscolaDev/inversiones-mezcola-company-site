@@ -337,6 +337,49 @@
   opacity: 0.32;
 }
 
+.mobileStackScroll {
+  position: relative;
+  height: 240svh;
+  height: 240dvh;
+  height: 240vh;
+  background: #050505;
+}
+
+.mobileStackStage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  height: 100dvh;
+  height: 100vh;
+  overflow: hidden;
+  background: #050505;
+}
+
+.mobileSceneLayer,
+.mobileVideoLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.mobileSceneLayer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mobileVideoLayer {
+  z-index: 1;
+  background: #050505;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+
+.mobileScrubCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .contactCard {
   margin-top: 1.8rem;
   border: 1px solid rgba(232, 228, 220, 0.16);
@@ -623,6 +666,12 @@
     min-height: 52dvh;
     height: 52svh;
     height: 52dvh;
+  }
+
+  .mobileStackScroll {
+    height: 220svh;
+    height: 220dvh;
+    height: 220vh;
   }
 
   .scene[data-scene='final-contact'] {

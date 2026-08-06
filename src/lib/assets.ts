@@ -19,7 +19,18 @@ export const assets = {
     room2ToRoom3: '/videos/Transition6Room2ToRoom3ThroughAir.mp4',
     room3ToFinal: '/videos/Transition7Room3ToFinalOfficePaper.mp4',
   },
+
+  frames: {
+    forestToLake: { basePath: '/frames/forestToLake', count: 92 },
+    lakeToWaterfall: { basePath: '/frames/lakeToWaterfall', count: 92 },
+    waterfallToHouse: { basePath: '/frames/waterfallToHouse', count: 92 },
+    houseToRoom1: { basePath: '/frames/houseToRoom1', count: 92 },
+    room1ToRoom2: { basePath: '/frames/room1ToRoom2', count: 127 },
+    room2ToRoom3: { basePath: '/frames/room2ToRoom3', count: 184 },
+    room3ToFinal: { basePath: '/frames/room3ToFinal', count: 92 },
+  },
 } as const;
 
 export type ImageKey = keyof typeof assets.images;
 export type VideoKey = keyof typeof assets.videos;
+export type FrameSequence = (typeof assets.frames)[VideoKey];
