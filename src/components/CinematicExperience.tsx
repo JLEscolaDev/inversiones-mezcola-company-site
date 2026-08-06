@@ -64,6 +64,7 @@ export function CinematicExperience({
   const [isLocked, setIsLocked] = useState(false);
   const [isManualFading, setIsManualFading] = useState(false);
   const sceneContainerRef = useRef<HTMLDivElement | null>(null);
+  const useCinematicMode = isDesktop && !reducedMotion;
 
   const triggerPrevScene = () => {
     if (isLocked) return;
@@ -102,7 +103,7 @@ export function CinematicExperience({
 
   useEffect(() => {
     const target = sceneContainerRef.current;
-    if (!target || reducedMotion) return;
+    if (!target || !useCinematicMode) return;
 
     const animateScene = () => {
       const image = target.querySelector('.js-scene-image');
@@ -118,10 +119,10 @@ export function CinematicExperience({
     };
 
     animateScene();
-  }, [currentSceneIndex, reducedMotion]);
+  }, [currentSceneIndex, useCinematicMode]);
 
   useEffect(() => {
-    if (reducedMotion) return;
+    if (!useCinematicMode) return;
 
     const goNext = () => {
       if (isLocked) return;
@@ -160,61 +161,20 @@ export function CinematicExperience({
     };
 
     let observer: ReturnType<typeof ScrollTrigger.observe> | null = null;
-    let touchStartY: number | null = null;
-
-    const canHandleTarget = (target: EventTarget | null) => {
-      const element = target instanceof HTMLElement ? target : null;
-      if (!element) return true;
-      return !element.closest('input, textarea, select, button, a');
-    };
-
-    const onWheel = (event: WheelEvent) => {
-      if (!canHandleTarget(event.target)) return;
-      event.preventDefault();
-      if (Math.abs(event.deltaY) < 8) return;
-      goNext();
-    };
-
-    const onTouchStart = (event: TouchEvent) => {
-      if (!canHandleTarget(event.target)) return;
-      touchStartY = event.changedTouches[0]?.clientY ?? null;
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (!canHandleTarget(event.target)) return;
-      event.preventDefault();
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      if (!canHandleTarget(event.target)) return;
-      if (touchStartY === null) return;
-      const currentY = event.changedTouches[0]?.clientY ?? touchStartY;
-      const deltaY = touchStartY - currentY;
-      touchStartY = null;
-      if (Math.abs(deltaY) < 22) return;
-      goNext();
-    };
 
     window.addEventListener('keydown', onKeyDown);
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
     document.body.style.overscrollBehavior = 'none';
 
-    if (isDesktop) {
-      observer = ScrollTrigger.observe({
-        target: window,
-        type: 'wheel,touch,pointer',
-        tolerance: 18,
-        preventDefault: true,
-        onDown: goNext,
-        onUp: goNext,
-      });
-    } else {
-      window.addEventListener('wheel', onWheel, { passive: false });
-      window.addEventListener('touchstart', onTouchStart, { passive: false });
-      window.addEventListener('touchmove', onTouchMove, { passive: false });
-      window.addEventListener('touchend', onTouchEnd, { passive: false });
-    }
+    observer = ScrollTrigger.observe({
+      target: window,
+      type: 'wheel,touch,pointer',
+      tolerance: 18,
+      preventDefault: true,
+      onDown: goNext,
+      onUp: goNext,
+    });
 
     return () => {
       window.removeEventListener('keydown', onKeyDown);
@@ -225,13 +185,8 @@ export function CinematicExperience({
       if (observer) {
         observer.kill();
       }
-
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
     };
-  }, [currentSceneIndex, isDesktop, isLocked, reducedMotion, sceneList.length, transitions]);
+  }, [currentSceneIndex, isLocked, sceneList.length, transitions, useCinematicMode]);
 
   const onTransitionEnded = () => {
     if (pendingDirection === 1) {
@@ -324,10 +279,39 @@ export function CinematicExperience({
     );
   };
 
+  const renderMobileTrack = () => {
+    const items: React.ReactNode[] = [];
+
+    sceneList.forEach((scene, index) => {
+      items.push(<div key={scene.id}>{renderScene(scene, scene.id === hero.id)}</div>);
+
+      const transition = transitions[index];
+      if (!transition) return;
+
+      items.push(
+        <TransitionVideo
+          key={transition.id}
+          id={transition.id}
+          reducedMotion={false}
+          mode="scroll"
+          videoSrc={resolveVideo(transition.video)}
+          posterSrc={resolveImage(transition.poster)}
+          classNames={{
+            transition: styles.transition,
+            video: styles.transitionVideo,
+            overlay: styles.transitionOverlay,
+          }}
+        />,
+      );
+    });
+
+    return items;
+  };
+
   const activeScene = sceneList[currentSceneIndex];
 
   const onUpButtonClick = () => {
-    if (reducedMotion) return;
+    if (!useCinematicMode) return;
     if (activeTransitionIndex !== null) return;
     if (isLocked) return;
     if (currentSceneIndex <= 0) return;
@@ -348,7 +332,7 @@ export function CinematicExperience({
         </div>
       </div>
 
-      {!reducedMotion ? (
+      {useCinematicMode ? (
         <div className={styles.desktopStage} ref={sceneContainerRef}>
           <div className={`${styles.manualFadeLayer} ${isManualFading ? 'isVisible' : ''}`.trim()} />
           {renderScene(activeScene, currentSceneIndex === 0)}
@@ -377,9 +361,7 @@ export function CinematicExperience({
         </div>
       ) : (
         <div className={styles.track}>
-          {sceneList.map((scene) => (
-            <div key={scene.id}>{renderScene(scene, scene.id === hero.id)}</div>
-          ))}
+          {renderMobileTrack()}
         </div>
       )}
     </div>

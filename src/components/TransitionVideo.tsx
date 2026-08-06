@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Props = {
   id: string;
@@ -12,25 +12,35 @@ type Props = {
     overlay: string;
   };
   reducedMotion: boolean;
+  mode?: 'autoplay' | 'scroll';
   onEnded?: () => void;
 };
 
-export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMotion, onEnded }: Props) {
+export function TransitionVideo({
+  id,
+  videoSrc,
+  posterSrc,
+  classNames,
+  reducedMotion,
+  mode = 'autoplay',
+  onEnded,
+}: Props) {
   const [hasError, setHasError] = useState(false);
   const [outroOpacity, setOutroOpacity] = useState(0);
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isPlaybackStarted, setIsPlaybackStarted] = useState(false);
   const hasCompletedRef = useRef(false);
+  const hasMetadataRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const completeTransition = () => {
+  const completeTransition = useCallback(() => {
     if (hasCompletedRef.current) return;
     hasCompletedRef.current = true;
     onEnded?.();
-  };
+  }, [onEnded]);
 
   useEffect(() => {
-    if (reducedMotion || hasError) return;
+    if (mode !== 'autoplay' || reducedMotion || hasError) return;
 
     const node = videoRef.current;
     if (!node) return;
@@ -54,13 +64,64 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [reducedMotion, hasError]);
+  }, [hasError, mode, reducedMotion]);
+
+  useEffect(() => {
+    if (mode !== 'scroll' || reducedMotion || hasError) return;
+
+    const node = videoRef.current;
+    if (!node) return;
+
+    let rafId = 0;
+
+    const syncFrameToScroll = () => {
+      if (hasMetadataRef.current) {
+        const rect = node.getBoundingClientRect();
+        const viewportHeight = window.innerHeight || 1;
+        const totalTravel = rect.height + viewportHeight;
+        const progress = (viewportHeight - rect.top) / totalTravel;
+        const clampedProgress = Math.max(0, Math.min(1, progress));
+        const duration = node.duration;
+
+        if (duration && Number.isFinite(duration)) {
+          const targetTime = clampedProgress * duration;
+          if (Math.abs(node.currentTime - targetTime) > 0.033) {
+            node.currentTime = targetTime;
+          }
+          setOutroOpacity(clampedProgress);
+          setIsVideoVisible(clampedProgress > 0.02);
+        }
+      }
+
+      rafId = window.requestAnimationFrame(syncFrameToScroll);
+    };
+
+    const onLoadedMetadata = () => {
+      hasMetadataRef.current = true;
+    };
+
+    node.pause();
+    node.muted = true;
+    node.addEventListener('loadedmetadata', onLoadedMetadata);
+    if (node.readyState >= 1) {
+      hasMetadataRef.current = true;
+    }
+
+    rafId = window.requestAnimationFrame(syncFrameToScroll);
+
+    return () => {
+      node.removeEventListener('loadedmetadata', onLoadedMetadata);
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [hasError, mode, reducedMotion]);
 
   useEffect(() => {
     hasCompletedRef.current = false;
+    hasMetadataRef.current = false;
   }, [videoSrc]);
 
   useEffect(() => {
+    if (mode !== 'autoplay') return;
     if (!onEnded) return;
     if (reducedMotion) return;
 
@@ -71,10 +132,11 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
     }, 1200);
 
     return () => window.clearTimeout(fallbackTimer);
-  }, [hasError, isPlaybackStarted, onEnded, reducedMotion]);
+  }, [completeTransition, hasError, isPlaybackStarted, mode, onEnded, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion || hasError) return;
+    if (mode !== 'autoplay') return;
     const node = videoRef.current;
     if (!node) return;
 
@@ -94,7 +156,7 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [reducedMotion, hasError, videoSrc]);
+  }, [hasError, mode, reducedMotion, videoSrc]);
 
   if (reducedMotion) return null;
 
@@ -113,11 +175,11 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
           src={videoSrc}
           poster={posterSrc}
           muted
-          loop={!onEnded}
+          loop={mode === 'scroll' ? false : !onEnded}
           playsInline
-          autoPlay
+          autoPlay={mode === 'autoplay'}
           preload="metadata"
-          onEnded={completeTransition}
+          onEnded={mode === 'autoplay' ? completeTransition : undefined}
           onPlaying={() => {
             setIsPlaybackStarted(true);
             setIsVideoVisible(true);
