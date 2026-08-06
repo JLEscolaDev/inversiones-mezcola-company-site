@@ -21,13 +21,13 @@ export const assets = {
   },
 
   frames: {
-    forestToLake: { basePath: '/sprites/forestToLake', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    lakeToWaterfall: { basePath: '/sprites/lakeToWaterfall', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    waterfallToHouse: { basePath: '/sprites/waterfallToHouse', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    houseToRoom1: { basePath: '/sprites/houseToRoom1', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    room1ToRoom2: { basePath: '/sprites/room1ToRoom2', count: 127, sheetCount: 8, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    room2ToRoom3: { basePath: '/sprites/room2ToRoom3', count: 184, sheetCount: 12, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
-    room3ToFinal: { basePath: '/sprites/room3ToFinal', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    forestToLake: { basePath: '/sprites/forestToLake', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    lakeToWaterfall: { basePath: '/sprites/lakeToWaterfall', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    waterfallToHouse: { basePath: '/sprites/waterfallToHouse', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    houseToRoom1: { basePath: '/sprites/houseToRoom1', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room1ToRoom2: { basePath: '/sprites/room1ToRoom2', count: 127, sheetCount: 32, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room2ToRoom3: { basePath: '/sprites/room2ToRoom3', count: 184, sheetCount: 46, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
+    room3ToFinal: { basePath: '/sprites/room3ToFinal', count: 92, sheetCount: 23, frameWidth: 1080, frameHeight: 608, columns: 2, rows: 2 },
   },
 } as const;
 
