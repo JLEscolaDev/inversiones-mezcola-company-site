@@ -21,13 +21,13 @@ export const assets = {
   },
 
   frames: {
-    forestToLake: { basePath: '/frames/forestToLake', count: 92 },
-    lakeToWaterfall: { basePath: '/frames/lakeToWaterfall', count: 92 },
-    waterfallToHouse: { basePath: '/frames/waterfallToHouse', count: 92 },
-    houseToRoom1: { basePath: '/frames/houseToRoom1', count: 92 },
-    room1ToRoom2: { basePath: '/frames/room1ToRoom2', count: 127 },
-    room2ToRoom3: { basePath: '/frames/room2ToRoom3', count: 184 },
-    room3ToFinal: { basePath: '/frames/room3ToFinal', count: 92 },
+    forestToLake: { basePath: '/sprites/forestToLake', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    lakeToWaterfall: { basePath: '/sprites/lakeToWaterfall', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    waterfallToHouse: { basePath: '/sprites/waterfallToHouse', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    houseToRoom1: { basePath: '/sprites/houseToRoom1', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    room1ToRoom2: { basePath: '/sprites/room1ToRoom2', count: 127, sheetCount: 5, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    room2ToRoom3: { basePath: '/sprites/room2ToRoom3', count: 184, sheetCount: 7, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    room3ToFinal: { basePath: '/sprites/room3ToFinal', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
   },
 } as const;
 

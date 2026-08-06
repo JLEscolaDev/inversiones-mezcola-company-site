@@ -50,45 +50,57 @@ type MobileScrubStepProps = {
 
 gsap.registerPlugin(ScrollTrigger);
 
-const frameCache = new Map<string, HTMLImageElement>();
-const FIRST_SCENE_HOLD = 0.11;
+const spriteCache = new Map<string, Promise<CanvasImageSource>>();
+const FIRST_SCENE_HOLD = 0.08;
 const SCENE_HOLD = 0.22;
 const SCENE_FADE = 0.12;
 const VIDEO_FADE = 0.12;
-const SCROLL_EASE = 0.14;
-const STILL_THRESHOLD = 0.0004;
+const SCROLL_EASE = 0.24;
+const STILL_THRESHOLD = 0.0006;
+const MOBILE_SEGMENT_SCROLL_VH = 135;
+const MOBILE_STACK_EXTRA_VH = 100;
+const MOBILE_CANVAS_MAX_DPR = 1.5;
 
-function getFrameSrc(frames: FrameSequence, index: number) {
-  return `${frames.basePath}/frame_${String(index + 1).padStart(4, '0')}.jpg`;
+function getSheetSrc(frames: FrameSequence, sheetIndex: number) {
+  return `${frames.basePath}/sheet_${String(sheetIndex + 1).padStart(4, '0')}.jpg`;
 }
 
-function loadFrame(src: string, onLoad?: (image: HTMLImageElement) => void) {
-  const cached = frameCache.get(src);
+function loadSprite(src: string, onLoad?: (image: CanvasImageSource) => void) {
+  const cached = spriteCache.get(src);
   if (cached) {
-    if (cached.complete) {
-      onLoad?.(cached);
-    } else if (onLoad) {
-      cached.addEventListener('load', () => onLoad(cached), { once: true });
-    }
+    cached.then((image) => onLoad?.(image)).catch(() => undefined);
     return cached;
   }
 
-  const image = new window.Image();
-  image.decoding = 'async';
-  image.src = src;
-  if (onLoad) {
-    image.addEventListener('load', () => onLoad(image), { once: true });
-  }
-  frameCache.set(src, image);
-  return image;
+  const promise = new Promise<CanvasImageSource>((resolve, reject) => {
+    const image = new window.Image();
+    image.decoding = 'async';
+    image.onload = async () => {
+      try {
+        if ('createImageBitmap' in window) {
+          resolve(await window.createImageBitmap(image));
+          return;
+        }
+      } catch {
+        // If bitmap creation fails, the decoded image is still drawable.
+      }
+      resolve(image);
+    };
+    image.onerror = () => reject(new Error(`Unable to load sprite ${src}`));
+    image.src = src;
+  });
+
+  spriteCache.set(src, promise);
+  promise.then((image) => onLoad?.(image)).catch(() => undefined);
+  return promise;
 }
 
-function drawCoverFrame(canvas: HTMLCanvasElement, image: HTMLImageElement) {
+function drawCoverSpriteFrame(canvas: HTMLCanvasElement, image: CanvasImageSource, frames: FrameSequence, frameIndex: number) {
   const context = canvas.getContext('2d');
-  if (!context || !image.naturalWidth || !image.naturalHeight) return;
+  if (!context) return;
 
   const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, MOBILE_CANVAS_MAX_DPR);
   const width = Math.max(1, Math.round(rect.width * dpr));
   const height = Math.max(1, Math.round(rect.height * dpr));
 
@@ -97,7 +109,7 @@ function drawCoverFrame(canvas: HTMLCanvasElement, image: HTMLImageElement) {
     canvas.height = height;
   }
 
-  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const imageRatio = frames.frameWidth / frames.frameHeight;
   const canvasRatio = width / height;
   let drawWidth = width;
   let drawHeight = height;
@@ -110,8 +122,25 @@ function drawCoverFrame(canvas: HTMLCanvasElement, image: HTMLImageElement) {
     drawHeight = width / imageRatio;
   }
 
+  const framesPerSheet = frames.columns * frames.rows;
+  const sheetFrameIndex = frameIndex % framesPerSheet;
+  const sourceX = (sheetFrameIndex % frames.columns) * frames.frameWidth;
+  const sourceY = Math.floor(sheetFrameIndex / frames.columns) * frames.frameHeight;
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'medium';
   context.clearRect(0, 0, width, height);
-  context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    frames.frameWidth,
+    frames.frameHeight,
+    (width - drawWidth) / 2,
+    (height - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
+  );
 }
 
 function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScrubStepProps) {
@@ -131,28 +160,31 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     let targetProgress = 0;
     let displayProgress = 0;
 
+    const warmSequence = (sequenceIndex: number) => {
+      const frames = frameSequences[sequenceIndex];
+      if (!frames) return;
+
+      for (let sheetIndex = 0; sheetIndex < frames.sheetCount; sheetIndex += 1) {
+        loadSprite(getSheetSrc(frames, sheetIndex));
+      }
+    };
+
     const drawFrameAt = (sequenceIndex: number, frameIndex: number) => {
       const canvas = canvasRefs.current[sequenceIndex];
       const frames = frameSequences[sequenceIndex];
       if (!canvas || !frames) return;
 
-      const frameSrc = getFrameSrc(frames, frameIndex);
-      loadFrame(frameSrc, (image) => {
+      const sheetIndex = Math.floor(frameIndex / (frames.columns * frames.rows));
+      loadSprite(getSheetSrc(frames, sheetIndex), (image) => {
         if (lastFrameRefs.current[sequenceIndex] === frameIndex) {
-          drawCoverFrame(canvas, image);
+          drawCoverSpriteFrame(canvas, image, frames, frameIndex);
         }
       });
 
-      for (let offset = 1; offset <= 12; offset += 1) {
-        const nextIndex = frameIndex + offset;
-        const previousIndex = frameIndex - offset;
-        if (nextIndex < frames.count) {
-          loadFrame(getFrameSrc(frames, nextIndex));
-        }
-        if (previousIndex >= 0) {
-          loadFrame(getFrameSrc(frames, previousIndex));
-        }
-      }
+      const nextSheetIndex = Math.min(frames.sheetCount - 1, sheetIndex + 1);
+      const previousSheetIndex = Math.max(0, sheetIndex - 1);
+      loadSprite(getSheetSrc(frames, nextSheetIndex));
+      loadSprite(getSheetSrc(frames, previousSheetIndex));
     };
 
     const updateTargetFromScroll = () => {
@@ -207,6 +239,9 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
 
       const activeFrames = frameSequences[activeIndex];
       if (activeFrames) {
+        warmSequence(activeIndex);
+        warmSequence(activeIndex + 1);
+
         const frameIndex = Math.min(
           activeFrames.count - 1,
           Math.max(0, Math.round(videoProgress * (activeFrames.count - 1))),
@@ -234,6 +269,21 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
       lastFrameRefs.current[index] = 0;
       drawFrameAt(index, 0);
     });
+    warmSequence(0);
+    warmSequence(1);
+
+    let cancelIdleWarm: () => void = () => undefined;
+    if ('requestIdleCallback' in window && 'cancelIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(() => {
+        frameSequences.forEach((_, index) => warmSequence(index));
+      });
+      cancelIdleWarm = () => window.cancelIdleCallback(idleId);
+    } else {
+      const timeoutId = globalThis.setTimeout(() => {
+        frameSequences.forEach((_, index) => warmSequence(index));
+      }, 800);
+      cancelIdleWarm = () => globalThis.clearTimeout(timeoutId);
+    }
 
     window.addEventListener('scroll', requestSync, { passive: true });
     window.addEventListener('resize', requestSync);
@@ -245,6 +295,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
       }
+      cancelIdleWarm();
     };
   }, [frameSequences, sceneCount, segmentCount]);
 
@@ -252,7 +303,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     <div
       ref={sectionRef}
       className={styles.mobileStackScroll}
-      style={{ height: `${segmentCount * 220 + 100}vh` }}
+      style={{ height: `${segmentCount * MOBILE_SEGMENT_SCROLL_VH + MOBILE_STACK_EXTRA_VH}vh` }}
     >
       <div className={styles.mobileStackStage}>
         {sceneLayers.map((sceneLayer, index) => (
