@@ -21,13 +21,13 @@ export const assets = {
   },
 
   frames: {
-    forestToLake: { basePath: '/sprites/forestToLake', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    lakeToWaterfall: { basePath: '/sprites/lakeToWaterfall', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    waterfallToHouse: { basePath: '/sprites/waterfallToHouse', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    houseToRoom1: { basePath: '/sprites/houseToRoom1', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    room1ToRoom2: { basePath: '/sprites/room1ToRoom2', count: 127, sheetCount: 5, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    room2ToRoom3: { basePath: '/sprites/room2ToRoom3', count: 184, sheetCount: 7, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
-    room3ToFinal: { basePath: '/sprites/room3ToFinal', count: 92, sheetCount: 4, frameWidth: 640, frameHeight: 362, columns: 5, rows: 6 },
+    forestToLake: { basePath: '/sprites/forestToLake', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    lakeToWaterfall: { basePath: '/sprites/lakeToWaterfall', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    waterfallToHouse: { basePath: '/sprites/waterfallToHouse', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    houseToRoom1: { basePath: '/sprites/houseToRoom1', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    room1ToRoom2: { basePath: '/sprites/room1ToRoom2', count: 127, sheetCount: 8, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    room2ToRoom3: { basePath: '/sprites/room2ToRoom3', count: 184, sheetCount: 12, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
+    room3ToFinal: { basePath: '/sprites/room3ToFinal', count: 92, sheetCount: 6, frameWidth: 1080, frameHeight: 608, columns: 4, rows: 4 },
   },
 } as const;
 

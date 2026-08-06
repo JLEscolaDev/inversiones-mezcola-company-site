@@ -59,7 +59,7 @@ const SCROLL_EASE = 0.24;
 const STILL_THRESHOLD = 0.0006;
 const MOBILE_SEGMENT_SCROLL_VH = 135;
 const MOBILE_STACK_EXTRA_VH = 100;
-const MOBILE_CANVAS_MAX_DPR = 1.5;
+const MOBILE_CANVAS_MAX_DPR = 2;
 
 function getSheetSrc(frames: FrameSequence, sheetIndex: number) {
   return `${frames.basePath}/sheet_${String(sheetIndex + 1).padStart(4, '0')}.jpg`;
