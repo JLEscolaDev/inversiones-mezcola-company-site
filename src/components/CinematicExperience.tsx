@@ -61,9 +61,8 @@ const FIRST_SCENE_HOLD = 0.08;
 const SCENE_HOLD = 0.22;
 const SCENE_FADE = 0.12;
 const VIDEO_FADE = 0.12;
+const SCROLL_EASE = 0.24;
 const STILL_THRESHOLD = 0.0006;
-const MOBILE_SCRUB_FPS = 18;
-const MAX_MOBILE_PLAYBACK_RATE = 1.25;
 const MOBILE_SEGMENT_SCROLL_VH = 135;
 const MOBILE_STACK_EXTRA_VH = 100;
 const MOBILE_CANVAS_MAX_DPR = 2;
@@ -178,10 +177,6 @@ function drawCoverSpriteFrame(canvas: HTMLCanvasElement, image: CanvasImageSourc
   );
 }
 
-function clampProgress(value: number) {
-  return Math.max(0, Math.min(1, value));
-}
-
 function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScrubStepProps) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sceneLayerRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -196,61 +191,8 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     if (!section || segmentCount === 0) return;
 
     let rafId = 0;
-    let limitRafId = 0;
-    let desiredProgress = 0;
     let targetProgress = 0;
-    let lastLimitTime = 0;
-    let hasInitializedScroll = false;
-    let isSettingScroll = false;
-
-    const getSegmentState = (progress: number) => {
-      const totalProgress = clampProgress(progress);
-      const scaledProgress = totalProgress * segmentCount;
-      const activeIndex = Math.min(segmentCount - 1, Math.floor(scaledProgress));
-      const segmentProgress = totalProgress >= 1 ? 1 : scaledProgress - activeIndex;
-      const sceneHold = activeIndex === 0 ? FIRST_SCENE_HOLD : SCENE_HOLD;
-      const videoStart = sceneHold;
-      const videoEnd = 1 - VIDEO_FADE;
-
-      return {
-        activeIndex,
-        segmentProgress,
-        sceneHold,
-        videoStart,
-        videoEnd,
-      };
-    };
-
-    const getMaxProgressStep = (progress: number, elapsedSeconds: number) => {
-      const { activeIndex, videoStart, videoEnd } = getSegmentState(progress);
-      const frames = frameSequences[activeIndex];
-      if (!frames) return 1;
-
-      const videoDurationSeconds = frames.count / MOBILE_SCRUB_FPS;
-      const videoProgressWindow = videoEnd - videoStart;
-      return (videoProgressWindow / segmentCount) * (MAX_MOBILE_PLAYBACK_RATE / videoDurationSeconds) * elapsedSeconds;
-    };
-
-    const getScrollMetrics = () => {
-      const viewportHeight = window.innerHeight || 1;
-      const sectionTop = section.getBoundingClientRect().top + window.scrollY;
-      const scrollDistance = Math.max(section.offsetHeight - viewportHeight, 1);
-      return { sectionTop, scrollDistance };
-    };
-
-    const getProgressFromScroll = () => {
-      const { sectionTop, scrollDistance } = getScrollMetrics();
-      return clampProgress((window.scrollY - sectionTop) / scrollDistance);
-    };
-
-    const setScrollProgress = (progress: number) => {
-      const { sectionTop, scrollDistance } = getScrollMetrics();
-      isSettingScroll = true;
-      window.scrollTo(0, sectionTop + progress * scrollDistance);
-      window.requestAnimationFrame(() => {
-        isSettingScroll = false;
-      });
-    };
+    let displayProgress = 0;
 
     const getSheetSrcAt = (sequenceIndex: number, sheetIndex: number) => {
       const frames = frameSequences[sequenceIndex];
@@ -292,9 +234,28 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
       });
     };
 
+    const updateTargetFromScroll = () => {
+      const viewportHeight = window.innerHeight || 1;
+      const rect = section.getBoundingClientRect();
+      const scrollDistance = Math.max(section.offsetHeight - viewportHeight, 1);
+      targetProgress = Math.max(0, Math.min(1, -rect.top / scrollDistance));
+    };
+
     const renderProgress = () => {
-      const totalProgress = targetProgress;
-      const { activeIndex, segmentProgress, sceneHold, videoStart, videoEnd } = getSegmentState(totalProgress);
+      const delta = targetProgress - displayProgress;
+      if (Math.abs(delta) > STILL_THRESHOLD) {
+        displayProgress += delta * SCROLL_EASE;
+      } else {
+        displayProgress = targetProgress;
+      }
+
+      const totalProgress = displayProgress;
+      const scaledProgress = totalProgress * segmentCount;
+      const activeIndex = Math.min(segmentCount - 1, Math.floor(scaledProgress));
+      const segmentProgress = totalProgress >= 1 ? 1 : scaledProgress - activeIndex;
+      const sceneHold = activeIndex === 0 ? FIRST_SCENE_HOLD : SCENE_HOLD;
+      const videoStart = sceneHold;
+      const videoEnd = 1 - VIDEO_FADE;
       const videoProgress = Math.max(0, Math.min(1, (segmentProgress - videoStart) / (videoEnd - videoStart)));
       const sceneFadeProgress = Math.max(0, Math.min(1, (segmentProgress - sceneHold) / SCENE_FADE));
       const nextSceneProgress = Math.max(0, Math.min(1, (segmentProgress - videoEnd) / VIDEO_FADE));
@@ -335,50 +296,17 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
         }
       }
 
-      rafId = 0;
-    };
-
-    const requestRender = () => {
-      if (rafId !== 0) return;
-      rafId = window.requestAnimationFrame(renderProgress);
-    };
-
-    const advanceLimitedScroll = (timestamp: number) => {
-      const elapsedSeconds = lastLimitTime > 0 ? Math.min((timestamp - lastLimitTime) / 1000, 0.05) : 1 / 60;
-      lastLimitTime = timestamp;
-
-      const delta = desiredProgress - targetProgress;
-      if (Math.abs(delta) <= STILL_THRESHOLD) {
-        targetProgress = desiredProgress;
-        setScrollProgress(targetProgress);
-        requestRender();
-        limitRafId = 0;
-        return;
+      if (Math.abs(targetProgress - displayProgress) > STILL_THRESHOLD) {
+        rafId = window.requestAnimationFrame(renderProgress);
+      } else {
+        rafId = 0;
       }
-
-      const maxStep = getMaxProgressStep(targetProgress, elapsedSeconds);
-      targetProgress = clampProgress(targetProgress + Math.sign(delta) * Math.min(Math.abs(delta), maxStep));
-      setScrollProgress(targetProgress);
-      requestRender();
-      limitRafId = window.requestAnimationFrame(advanceLimitedScroll);
     };
 
     const requestSync = () => {
-      if (isSettingScroll) return;
-
-      const scrollProgress = getProgressFromScroll();
-      if (!hasInitializedScroll) {
-        desiredProgress = scrollProgress;
-        targetProgress = scrollProgress;
-        hasInitializedScroll = true;
-        requestRender();
-        return;
-      }
-
-      desiredProgress = scrollProgress;
-      if (limitRafId === 0) {
-        limitRafId = window.requestAnimationFrame(advanceLimitedScroll);
-      }
+      updateTargetFromScroll();
+      if (rafId !== 0) return;
+      rafId = window.requestAnimationFrame(renderProgress);
     };
 
     lastFrameRefs.current = frameSequences.map(() => -1);
@@ -393,9 +321,6 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
       window.removeEventListener('resize', requestSync);
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
-      }
-      if (limitRafId !== 0) {
-        window.cancelAnimationFrame(limitRafId);
       }
     };
   }, [frameSequences, sceneCount, segmentCount]);
