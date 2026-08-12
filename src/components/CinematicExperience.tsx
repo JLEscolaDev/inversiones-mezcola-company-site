@@ -67,9 +67,45 @@ const MOBILE_SEGMENT_SCROLL_VH = 135;
 const MOBILE_STACK_EXTRA_VH = 100;
 const MOBILE_CANVAS_MAX_DPR = 2;
 const MAX_SPRITE_CACHE_ITEMS = 8;
+const CRITICAL_SPRITE_PRELOAD_SHEETS = 6;
+const SPRITE_LOOKAHEAD_SHEETS = 4;
+const BACKGROUND_WARMUP_CONCURRENCY = 1;
+
+const warmedSpriteSrcs = new Set<string>();
 
 function getSheetSrc(frames: FrameSequence, sheetIndex: number) {
   return `${frames.basePath}/sheet_${String(sheetIndex + 1).padStart(4, '0')}.jpg`;
+}
+
+function preloadSpriteImage(src: string) {
+  if (warmedSpriteSrcs.has(src)) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const image = new window.Image();
+    image.decoding = 'async';
+    image.onload = () => {
+      warmedSpriteSrcs.add(src);
+      resolve();
+    };
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+}
+
+async function warmSpriteImages(srcs: string[], shouldCancel: () => boolean, concurrency = BACKGROUND_WARMUP_CONCURRENCY) {
+  let nextIndex = 0;
+
+  const runWorker = async () => {
+    while (!shouldCancel() && nextIndex < srcs.length) {
+      const src = srcs[nextIndex];
+      nextIndex += 1;
+      await preloadSpriteImage(src);
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, runWorker));
 }
 
 function closeSprite(image: CanvasImageSource | undefined) {
@@ -193,6 +229,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     let rafId = 0;
     let targetProgress = 0;
     let displayProgress = 0;
+    let isCancelled = false;
 
     const getSheetSrcAt = (sequenceIndex: number, sheetIndex: number) => {
       const frames = frameSequences[sequenceIndex];
@@ -201,15 +238,30 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
       return getSheetSrc(frames, clampedSheetIndex);
     };
 
+    const getSequenceSheetSrcs = (sequenceIndex: number, startSheetIndex = 0, maxCount = Number.POSITIVE_INFINITY) => {
+      const frames = frameSequences[sequenceIndex];
+      if (!frames) return [];
+
+      const endSheetIndex = Math.min(frames.sheetCount, startSheetIndex + maxCount);
+      const srcs: string[] = [];
+      for (let sheetIndex = startSheetIndex; sheetIndex < endSheetIndex; sheetIndex += 1) {
+        srcs.push(getSheetSrc(frames, sheetIndex));
+      }
+      return srcs;
+    };
+
+    const getAllSheetSrcs = () => {
+      return frameSequences.flatMap((_, sequenceIndex) => getSequenceSheetSrcs(sequenceIndex));
+    };
+
     const getKeepSrcs = (sequenceIndex: number, sheetIndex: number) => {
       const keepSrcs = new Set<string>();
-      [sheetIndex - 1, sheetIndex, sheetIndex + 1].forEach((index) => {
+      for (let index = sheetIndex - 1; index <= sheetIndex + SPRITE_LOOKAHEAD_SHEETS; index += 1) {
         const src = getSheetSrcAt(sequenceIndex, index);
         if (src) keepSrcs.add(src);
-      });
+      }
 
-      const nextSequenceFirstSheet = getSheetSrcAt(sequenceIndex + 1, 0);
-      if (nextSequenceFirstSheet) keepSrcs.add(nextSequenceFirstSheet);
+      getSequenceSheetSrcs(sequenceIndex + 1, 0, 2).forEach((src) => keepSrcs.add(src));
       return keepSrcs;
     };
 
@@ -310,13 +362,35 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     };
 
     lastFrameRefs.current = frameSequences.map(() => -1);
+    const criticalSrcs = [
+      ...getSequenceSheetSrcs(0, 0, CRITICAL_SPRITE_PRELOAD_SHEETS),
+      ...getSequenceSheetSrcs(1, 0, 2),
+    ];
+    const criticalKeepSrcs = new Set(criticalSrcs);
+
+    criticalSrcs.forEach((src) => {
+      loadSprite(src, criticalKeepSrcs, () => {
+        if (lastFrameRefs.current[0] <= 0) {
+          lastFrameRefs.current[0] = 0;
+          drawFrameAt(0, 0);
+        }
+      });
+    });
     drawFrameAt(0, 0);
+
+    const warmupTimer = window.setTimeout(() => {
+      const alreadyCritical = new Set(criticalSrcs);
+      const backgroundSrcs = getAllSheetSrcs().filter((src) => !alreadyCritical.has(src));
+      void warmSpriteImages(backgroundSrcs, () => isCancelled);
+    }, 350);
 
     window.addEventListener('scroll', requestSync, { passive: true });
     window.addEventListener('resize', requestSync);
     requestSync();
 
     return () => {
+      isCancelled = true;
+      window.clearTimeout(warmupTimer);
       window.removeEventListener('scroll', requestSync);
       window.removeEventListener('resize', requestSync);
       if (rafId !== 0) {
