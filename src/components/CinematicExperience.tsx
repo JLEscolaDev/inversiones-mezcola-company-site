@@ -66,10 +66,10 @@ const STILL_THRESHOLD = 0.0006;
 const MOBILE_SEGMENT_SCROLL_VH = 135;
 const MOBILE_STACK_EXTRA_VH = 100;
 const MOBILE_CANVAS_MAX_DPR = 2;
-const MAX_SPRITE_CACHE_ITEMS = 8;
+const MAX_SPRITE_CACHE_ITEMS = 12;
 const CRITICAL_SPRITE_PRELOAD_SHEETS = 6;
 const SPRITE_LOOKAHEAD_SHEETS = 4;
-const BACKGROUND_WARMUP_CONCURRENCY = 1;
+const BACKGROUND_WARMUP_CONCURRENCY = 3;
 
 const warmedSpriteSrcs = new Set<string>();
 
@@ -156,6 +156,7 @@ function loadSprite(src: string, keepSrcs: Set<string>, onLoad?: (image: CanvasI
   const entry: SpriteCacheEntry = { lastUsed: Date.now(), promise };
   promise.then((image) => {
     entry.image = image;
+    warmedSpriteSrcs.add(src);
   }).catch(() => {
     spriteCache.delete(src);
   });
@@ -216,8 +217,8 @@ function drawCoverSpriteFrame(canvas: HTMLCanvasElement, image: CanvasImageSourc
 function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScrubStepProps) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const sceneLayerRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const frameLayerRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
+  const frameLayerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastFrameRefs = useRef<number[]>([]);
   const segmentCount = frameSequences.length;
   const sceneCount = sceneLayers.length;
@@ -266,7 +267,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     };
 
     const drawFrameAt = (sequenceIndex: number, frameIndex: number) => {
-      const canvas = canvasRefs.current[sequenceIndex];
+      const canvas = canvasRef.current;
       const frames = frameSequences[sequenceIndex];
       if (!canvas || !frames) return;
 
@@ -325,16 +326,13 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
         layer.style.opacity = String(opacity);
       });
 
-      frameLayerRefs.current.forEach((layer, index) => {
-        if (!layer) return;
-        let opacity = 0;
-        if (index === activeIndex) {
-          const fadeIn = Math.max(0, Math.min(1, (segmentProgress - sceneHold) / SCENE_FADE));
-          const fadeOut = Math.max(0, Math.min(1, (1 - segmentProgress) / VIDEO_FADE));
-          opacity = Math.min(fadeIn, fadeOut);
-        }
-        layer.style.opacity = String(opacity);
-      });
+      const frameLayer = frameLayerRef.current;
+      if (frameLayer) {
+        const fadeIn = Math.max(0, Math.min(1, (segmentProgress - sceneHold) / SCENE_FADE));
+        const fadeOut = Math.max(0, Math.min(1, (1 - segmentProgress) / VIDEO_FADE));
+        frameLayer.style.backgroundImage = `url(${posterSrcs[activeIndex]})`;
+        frameLayer.style.opacity = String(Math.min(fadeIn, fadeOut));
+      }
 
       const activeFrames = frameSequences[activeIndex];
       if (activeFrames) {
@@ -362,10 +360,9 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     };
 
     lastFrameRefs.current = frameSequences.map(() => -1);
-    const criticalSrcs = [
-      ...getSequenceSheetSrcs(0, 0, CRITICAL_SPRITE_PRELOAD_SHEETS),
-      ...getSequenceSheetSrcs(1, 0, 2),
-    ];
+    const firstSheetSrcs = frameSequences.map((_, sequenceIndex) => getSequenceSheetSrcs(sequenceIndex, 0, 1)).flat();
+    const firstSequenceSrcs = getSequenceSheetSrcs(0, 0, CRITICAL_SPRITE_PRELOAD_SHEETS);
+    const criticalSrcs = Array.from(new Set([...firstSheetSrcs, ...firstSequenceSrcs]));
     const criticalKeepSrcs = new Set(criticalSrcs);
 
     criticalSrcs.forEach((src) => {
@@ -379,10 +376,12 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
     drawFrameAt(0, 0);
 
     const warmupTimer = window.setTimeout(() => {
-      const alreadyCritical = new Set(criticalSrcs);
-      const backgroundSrcs = getAllSheetSrcs().filter((src) => !alreadyCritical.has(src));
+      const firstSheetsForEverySequence = frameSequences.flatMap((_, sequenceIndex) =>
+        getSequenceSheetSrcs(sequenceIndex, 0, CRITICAL_SPRITE_PRELOAD_SHEETS),
+      );
+      const backgroundSrcs = Array.from(new Set([...firstSheetsForEverySequence, ...getAllSheetSrcs()]));
       void warmSpriteImages(backgroundSrcs, () => isCancelled);
-    }, 350);
+    }, 120);
 
     window.addEventListener('scroll', requestSync, { passive: true });
     window.addEventListener('resize', requestSync);
@@ -397,7 +396,7 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [frameSequences, sceneCount, segmentCount]);
+  }, [frameSequences, posterSrcs, sceneCount, segmentCount]);
 
   return (
     <div
@@ -418,26 +417,17 @@ function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScr
             {sceneLayer}
           </div>
         ))}
-        {frameSequences.map((frames, index) => (
-          <div
-            key={frames.basePath}
-            ref={(node) => {
-              frameLayerRefs.current[index] = node;
-            }}
-            className={styles.mobileVideoLayer}
-            style={{
-              backgroundImage: `url(${posterSrcs[index]})`,
-              zIndex: (sceneLayers.length - index) * 2 - 1,
-            }}
-          >
-            <canvas
-              ref={(node) => {
-                canvasRefs.current[index] = node;
-              }}
-              className={styles.mobileScrubCanvas}
-            />
-          </div>
-        ))}
+        <div
+          ref={frameLayerRef}
+          className={styles.mobileVideoLayer}
+          style={{
+            backgroundImage: `url(${posterSrcs[0]})`,
+            opacity: 0,
+            zIndex: sceneLayers.length * 2 + 1,
+          }}
+        >
+          <canvas ref={canvasRef} className={styles.mobileScrubCanvas} />
+        </div>
       </div>
     </div>
   );
