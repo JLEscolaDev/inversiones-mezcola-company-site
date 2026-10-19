@@ -1,0 +1,58 @@
+{
+  "forestToLake": {
+    "src": "/motion-mobile-v2/forestToLake.mp4",
+    "count": 92,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 5044541
+  },
+  "lakeToWaterfall": {
+    "src": "/motion-mobile-v2/lakeToWaterfall.mp4",
+    "count": 92,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 4217271
+  },
+  "waterfallToHouse": {
+    "src": "/motion-mobile-v2/waterfallToHouse.mp4",
+    "count": 92,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 4729536
+  },
+  "houseToRoom1": {
+    "src": "/motion-mobile-v2/houseToRoom1.mp4",
+    "count": 92,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 4037400
+  },
+  "room1ToRoom2": {
+    "src": "/motion-mobile-v2/room1ToRoom2.mp4",
+    "count": 127,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 3577899
+  },
+  "room2ToRoom3": {
+    "src": "/motion-mobile-v2/room2ToRoom3.mp4",
+    "count": 184,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 6982544
+  },
+  "room3ToFinal": {
+    "src": "/motion-mobile-v2/room3ToFinal.mp4",
+    "count": 92,
+    "fps": 18,
+    "width": 900,
+    "height": 1600,
+    "bytes": 2601468
+  }
+}

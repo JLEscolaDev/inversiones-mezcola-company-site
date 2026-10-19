@@ -1,4 +1,4 @@
-import motionPreviews from './motion-previews.json';
+import mobileMotion from './mobile-motion.json';
 
 export const assets = {
   images: {
@@ -23,13 +23,13 @@ export const assets = {
   },
 
   frames: {
-    forestToLake: { basePath: '/sprites-mobile-v4/forestToLake', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.forestToLake },
-    lakeToWaterfall: { basePath: '/sprites-mobile-v4/lakeToWaterfall', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.lakeToWaterfall },
-    waterfallToHouse: { basePath: '/sprites-mobile-v4/waterfallToHouse', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.waterfallToHouse },
-    houseToRoom1: { basePath: '/sprites-mobile-v4/houseToRoom1', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.houseToRoom1 },
-    room1ToRoom2: { basePath: '/sprites-mobile-v4/room1ToRoom2', count: 127, sheetCount: 64, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room1ToRoom2 },
-    room2ToRoom3: { basePath: '/sprites-mobile-v4/room2ToRoom3', count: 184, sheetCount: 92, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room2ToRoom3 },
-    room3ToFinal: { basePath: '/sprites-mobile-v4/room3ToFinal', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room3ToFinal },
+    forestToLake: { count: 92, motion: mobileMotion.forestToLake },
+    lakeToWaterfall: { count: 92, motion: mobileMotion.lakeToWaterfall },
+    waterfallToHouse: { count: 92, motion: mobileMotion.waterfallToHouse },
+    houseToRoom1: { count: 92, motion: mobileMotion.houseToRoom1 },
+    room1ToRoom2: { count: 127, motion: mobileMotion.room1ToRoom2 },
+    room2ToRoom3: { count: 184, motion: mobileMotion.room2ToRoom3 },
+    room3ToFinal: { count: 92, motion: mobileMotion.room3ToFinal },
   },
 } as const;
 

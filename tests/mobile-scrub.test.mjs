@@ -1,123 +1,80 @@
-import { fileURLToPath } from 'node:url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
 import vm from 'node:vm';
 import ts from 'typescript';
-const root = path.resolve(__dirname, '..');
-const original = process.env.ORIGINAL_SCRUB_SOURCE;
 
-function mount({ failDecode = false } = {}) {
-  const states = [];
-  const frames = ['a','b'].map(name => ({basePath: `/${name}`, count: 10, sheetCount: 5,
-    frameWidth: 900, frameHeight:1600,columns:2,rows:1,
-    preview: {src:`/${name}.webp`,count:10,frameWidth:180,frameHeight:320,columns:10,rows:1}}));
-  const requests = new Map();
-  const draws = [];
-  const bitmaps = [];
-  const rafs = new Map();
-  const events = new Map();
-  const effects = [];
-  let id = 0, y = 0, width = 390;
-  class Bitmap {
-    constructor(src) { this.src=src; this.width=1800; this.height=1600;this.closed=false;bitmaps.push(this); }
-    close() { this.closed = true; }
+function mount() {
+  const videos = [], draws = [], timers = new Set();
+  let width=390, failures=0, callbacks=0;
+  class Video {
+    listeners=new Map();currentTime=0;readyState=0;videoWidth=900;videoHeight=1600;seeking=false;
+    style={}; attrs={}; removed=false;loads=0;
+    setAttribute(name,value){this.attrs[name]=value}
+    removeAttribute(name){delete this[name]}
+    addEventListener(name,fn){this.listeners.set(name,fn)}
+    removeEventListener(name){this.listeners.delete(name)}
+    load(){this.loads++} pause(){} remove(){this.removed=true}
+    emit(name){this.listeners.get(name)?.()}
+    loaded(){this.readyState=2;this.emit('loadeddata')}
+    finish(){this.seeking=false;this.emit('seeked')}
   }
-  const request = (src, finish) => { const list=requests.get(src)||[]; list.push(finish); requests.set(src,list); };
-  class FakeImage {
-    set src(value) { this._src=value; request(value,()=>this.onload?.()); }
-    get src() { return this._src; }
-    async decode() { if (failDecode) throw new Error('Unsupported image codec'); }
-  }
-  const createBitmap=async image => { if (failDecode) throw new Error('Unsupported image codec'); return new Bitmap(image.src); };
-  const react = {useRef:value=>({current:value}),useEffect:effect=>effects.push(effect),useMemo:f=>f(),useState:value=>{ const index=states.push(value)-1;return [value,next=>{states[index]=next}]; }};
-  function jsx(type, props={}) {
-    const node={style:{},offsetHeight: props.style?.height ? parseFloat(props.style.height)*844/100 : 844,
-      get clientWidth(){return width},clientHeight:844,width:300,height:150,
-      getBoundingClientRect:()=>({top:-y,width,height:844}),
-      querySelectorAll:()=>[],getContext:()=>({drawImage:(image,...args)=>{assert.equal(image.closed,false,'draws closed bitmap');draws.push({src:image.src,args,width});},clearRect:()=>{}})};
-    if (typeof props.ref==='function') props.ref(node);
-    else if (props.ref) props.ref.current=node;
-    return node;
-  }
-  const browser = {Image:FakeImage,createImageBitmap:createBitmap,devicePixelRatio:1,innerHeight:844,
-    requestAnimationFrame:fn=>{rafs.set(++id,fn);return id},cancelAnimationFrame:key=>rafs.delete(key),
-    setTimeout:()=>++id,clearTimeout:()=>{},addEventListener:(event,fn)=>events.set(event,fn),removeEventListener:()=>{}};
-  const context = vm.createContext({console,Promise,Map,Set,Date,Math,Number,String,Array,Error,AbortController,
-    URL:{createObjectURL:blob=>blob.src,revokeObjectURL:()=>{}},queueMicrotask,window:browser,Image:FakeImage,ImageBitmap:Bitmap,createImageBitmap:createBitmap,
-    requestAnimationFrame:browser.requestAnimationFrame,cancelAnimationFrame:browser.cancelAnimationFrame,
-    fetch:(src)=>new Promise(resolve=>request(src,()=>resolve({ok:true,blob:async()=>({src})}))),
-    setTimeout:browser.setTimeout,clearTimeout:browser.clearTimeout});
-  let store;
-  function load(source) {
-    const compiledModule={exports:{}};
-    const requireStub=name=>{
-      if(name==='react') return react;
-      if(name==='react/jsx-runtime') return {jsx,jsxs:jsx};
-      if(name==='@/lib/sprite-store') return store;
-      if(name==='gsap') return {__esModule:true,default:{registerPlugin(){}}};
-      return {__esModule:true,default:{},ScrollTrigger:{}};
-    };
-    const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText;
-    vm.runInContext(`(function(require,module,exports){${js}\n})`,context)(requireStub,compiledModule,compiledModule.exports);
-    return compiledModule.exports;
-  }
-  store=load(fs.readFileSync(path.join(root,'src/lib/sprite-store.ts'),'utf8'));
-  const source=original ? fs.readFileSync(original,'utf8')+'\nexport { MobileScrubStack, loadSprite, spriteCache };' : fs.readFileSync(path.join(root,'src/components/MobileScrubStack.tsx'),'utf8');
-  const api=load(source);
-  api.MobileScrubStack({sceneLayers:[null,null,null],frameSequences:frames,posterSrcs:['/p1','/p2']});
-  const cleanup=effects.at(-1)();
-  const flush=async()=>{for(let i=0;i<20;i++) await Promise.resolve();};
-  const ticks=async(n=100)=>{await flush();for(let i=0;i<n&&rafs.size;i++){const batch=[...rafs];rafs.clear();batch.forEach(([,fn])=>fn());await flush();}};
-  const deliver=async(predicate=()=>true)=>{for(let round=0;round<10;round++){await flush();const keys=[...requests.keys()].filter(predicate);if(!keys.length)break;for(const key of keys){const callbacks=requests.get(key);requests.delete(key);callbacks.forEach(fn=>fn());}await ticks();}};
-  return {draws,bitmaps,requests,api,cleanup,flush,ticks,deliver,states,
-    scroll:async progress=>{y=progress*(2*135*844/100);events.get('scroll')?.();await ticks();},
-    resize:async value=>{width=value;events.get('resize')?.();await ticks();}};
+  const canvas={clientHeight:844,dataset:{},get clientWidth(){return width},getContext:()=>({drawImage:(video,...args)=>draws.push({video,time:video.currentTime,width:canvas.width,args})})};
+  const host={appendChild:video=>videos.push(video)};
+  const compiledModule={exports:{}};
+  const source=ts.transpileModule(fs.readFileSync(new URL('../src/lib/video-scrubber.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+  const context=vm.createContext({module:compiledModule,exports:compiledModule.exports,document:{createElement:()=>new Video()},window:{devicePixelRatio:2,setTimeout:fn=>{timers.add(fn);return fn},clearTimeout:fn=>timers.delete(fn)}});
+  vm.runInContext(source,context);
+  const sequence={count:92,fps:18,width:900,height:1600,bytes:100,src:'/test.mp4'};
+  const scrubber=new compiledModule.exports.VideoScrubber(canvas,host,Array(7).fill(sequence),Array.from({length:7},(_,i)=>`blob:${i}`),()=>callbacks++,()=>failures++);
+  return {scrubber,videos,draws,canvas,timers,resize:value=>width=value,get failures(){return failures},get callbacks(){return callbacks}};
 }
 
-test('late prior sequence completion cannot overwrite the active shared canvas',async()=>{
-  const h=mount();await h.scroll(0.2);await h.scroll(0.7);
-  await h.deliver(src=>src.startsWith('/b'));
-  assert.ok(h.draws.at(-1)?.src.startsWith('/b'),'active sequence must paint');
-  await h.deliver(src=>src.startsWith('/a'));
-  assert.ok(h.draws.at(-1)?.src.startsWith('/b'),'late sequence A overwrote current B');h.cleanup();
+test('continuous scrolling keeps one seek in flight and paints its completion before latest target',()=>{
+  const h=mount();h.scrubber.request(0,0);h.videos[0].loaded();
+  h.scrubber.request(0,10);const first=h.videos[0].currentTime;
+  h.scrubber.request(0,20);h.scrubber.request(0,30);
+  assert.equal(h.videos[0].currentTime,first,'must not cancel in-flight decoder work');
+  h.videos[0].finish();
+  assert.equal(h.canvas.dataset.frame,'10','first completed frame must paint during motion');
+  assert.ok(h.videos[0].currentTime>30/18,'latest desired position must follow completion');
+  h.videos[0].finish();assert.equal(h.canvas.dataset.frame,'30');
+  h.scrubber.dispose();
 });
 
-test('resize repaints an unchanged frame at the current canvas size',async()=>{
-  const h=mount();await h.scroll(0.2);await h.deliver();
-  assert.ok(h.draws.length);await h.resize(430);
-  assert.equal(h.draws.at(-1).width,430);h.cleanup();
+test('late callbacks from previous sequence never repaint the active canvas',()=>{
+  const h=mount();h.scrubber.request(0,0);h.videos[0].loaded();h.scrubber.request(0,20);
+  const oldCallback=h.videos[0].listeners.get('seeked');
+  h.scrubber.request(1,0);h.videos[1].loaded();
+  const before=h.draws.length;oldCallback();
+  assert.equal(h.draws.length,before);assert.equal(h.canvas.dataset.sequence,'1');h.scrubber.dispose();
 });
 
-test('unmount closes resident and late bitmaps and suppresses late drawing',async()=>{
-  const h=mount();await h.scroll(0.2);await h.deliver();
-  const before=h.draws.length;h.cleanup();await h.deliver();
+test('resize and re-entry repaint unchanged full-resolution frames; idle does not redraw',()=>{
+  const h=mount();h.scrubber.request(0,0);h.videos[0].loaded();const before=h.draws.length;
+  h.scrubber.request(0,0);assert.equal(h.draws.length,before);
+  h.resize(430);h.scrubber.request(0,0);assert.equal(h.draws.at(-1).width,860);
+  h.scrubber.request(1,0);h.videos[1].loaded();h.scrubber.request(0,0);h.videos.at(-1).loaded();
+  assert.equal(h.canvas.dataset.sequence,'0');h.scrubber.dispose();
+});
+
+test('only current/next native surfaces retained, all sources released on unmount',()=>{
+  const h=mount();for(let i=0;i<7;i++)h.scrubber.request(i,20);
+  assert.ok(h.videos.filter(v=>!v.removed).length<=2);
+  const late=h.videos.at(-1).listeners.get('loadeddata');const before=h.draws.length;
+  h.scrubber.dispose();late();
+  assert.ok(h.videos.every(v=>v.removed&&!v.src));assert.equal(h.timers.size,0);
   assert.equal(h.draws.length,before);
-  assert.ok(h.bitmaps.length>0);
-  assert.ok(h.bitmaps.every(image=>image.closed),'bitmap resources leaked on unmount');
 });
 
-test('complete preview renders an uncached exact frame while detail is delayed',async()=>{
-  const h=mount();await h.scroll(0.2);await h.deliver(src=>src.endsWith('.webp'));
-  const first=h.draws.length;await h.scroll(0.3);
-  assert.ok(h.draws.length>first,'cold high-detail data blocked motion');
-  assert.equal(h.draws.at(-1).src,'/a.webp');h.cleanup();
+test('unexpected low-resolution media is rejected before any frame is drawn',()=>{
+  const h=mount();h.scrubber.request(0,0);h.videos[0].videoWidth=144;h.videos[0].videoHeight=256;h.videos[0].loaded();
+  assert.equal(h.failures,1);assert.equal(h.draws.length,0);h.scrubber.dispose();
 });
 
 
-test('detail arriving after scroll stops upgrades the same frame without another gesture',async()=>{
-  const h=mount();await h.scroll(0.2);await h.deliver(src=>src.endsWith('.webp'));
-  assert.equal(h.draws.at(-1).src,'/a.webp');
-  await h.scroll(0.2);const before=h.draws.length;await h.deliver(src=>src.endsWith('.jpg'));
-  assert.ok(h.draws.length>before,'loaded detail must repaint an idle canvas');
-  assert.ok(h.draws.at(-1).src.startsWith('/a/sheet_'));h.cleanup();
-});
-
-
-test('unsupported preview decoder immediately requests static fallback before timeout',async()=>{
-  const h=mount({failDecode:true});await h.ticks();await h.deliver(src=>src.endsWith('.webp'));
-  assert.equal(h.states[2],true,'decoder error must request fallback without waiting20s');
-  assert.equal(h.draws.length,0);h.cleanup();
+test('cold jump seeks to the requested position before revealing a new clip',()=>{
+  const h=mount();h.scrubber.request(4,50);h.videos[0].loaded();
+  assert.equal(h.draws.length,0,'must not flash the first frame of a jumped-to transition');
+  h.videos[0].finish();assert.equal(h.canvas.dataset.frame,'50');h.scrubber.dispose();
 });
