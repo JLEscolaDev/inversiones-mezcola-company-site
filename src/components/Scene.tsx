@@ -55,7 +55,7 @@ export function Scene({
           src={imageSrc}
           alt=""
           fill
-          priority={priority}
+          preload={priority}
           sizes="100vw"
           className="js-scene-image"
         />

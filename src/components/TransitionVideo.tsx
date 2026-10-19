@@ -21,11 +21,14 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
   const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isPlaybackStarted, setIsPlaybackStarted] = useState(false);
   const hasCompletedRef = useRef(false);
+  const isPlayingRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const stalledTimerRef = useRef<number | null>(null);
 
   const completeTransition = useCallback(() => {
     if (hasCompletedRef.current) return;
     hasCompletedRef.current = true;
+    if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current);
     onEnded?.();
   }, [onEnded]);
 
@@ -58,20 +61,22 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
 
   useEffect(() => {
     hasCompletedRef.current = false;
+    isPlayingRef.current = false;
   }, [videoSrc]);
 
+  // Network progress keeps a valid first download alive. A short startup
+  // deadline used to discard every cold video that took longer than 1.2s.
+  const armStallTimer = useCallback(() => {
+    if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current);
+    if (onEnded && !isPlayingRef.current) stalledTimerRef.current = window.setTimeout(completeTransition, 20000);
+  }, [completeTransition, onEnded]);
+
   useEffect(() => {
-    if (!onEnded) return;
     if (reducedMotion) return;
-
-    const fallbackTimer = window.setTimeout(() => {
-      if (!isPlaybackStarted || hasError) {
-        completeTransition();
-      }
-    }, 1200);
-
-    return () => window.clearTimeout(fallbackTimer);
-  }, [completeTransition, hasError, isPlaybackStarted, onEnded, reducedMotion]);
+    if (hasError) { completeTransition(); return; }
+    if (!isPlaybackStarted) armStallTimer();
+    return () => { if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current); };
+  }, [armStallTimer, completeTransition, hasError, isPlaybackStarted, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion || hasError) return;
@@ -116,9 +121,13 @@ export function TransitionVideo({ id, videoSrc, posterSrc, classNames, reducedMo
           loop={!onEnded}
           playsInline
           autoPlay
-          preload="metadata"
+          preload="auto"
+          onProgress={armStallTimer}
+          onWaiting={() => { isPlayingRef.current = false; armStallTimer(); }}
           onEnded={completeTransition}
           onPlaying={() => {
+            isPlayingRef.current = true;
+            if (stalledTimerRef.current) window.clearTimeout(stalledTimerRef.current);
             setIsPlaybackStarted(true);
             setIsVideoVisible(true);
           }}

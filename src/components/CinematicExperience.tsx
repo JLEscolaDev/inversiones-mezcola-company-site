@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Link from 'next/link';
+import Image from 'next/image';
 
 import styles from '@/components/CinematicExperience.module.css';
 import { Scene } from '@/components/Scene';
@@ -12,7 +13,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ContactForm } from '@/components/ContactForm';
 import { resolveFrameSequence, resolveImage, resolveVideo, type SceneBlock, type TransitionBlock } from '@/lib/content';
 import type { Locale } from '@/lib/i18n';
-import type { FrameSequence } from '@/lib/assets';
+import { MobileScrubStack } from '@/components/MobileScrubStack';
 
 type Props = {
   locale: Locale;
@@ -42,396 +43,7 @@ type Props = {
   };
 };
 
-type MobileScrubStepProps = {
-  sceneLayers: ReactNode[];
-  frameSequences: FrameSequence[];
-  posterSrcs: string[];
-};
-
 gsap.registerPlugin(ScrollTrigger);
-
-type SpriteCacheEntry = {
-  image?: CanvasImageSource;
-  lastUsed: number;
-  promise: Promise<CanvasImageSource>;
-};
-
-const spriteCache = new Map<string, SpriteCacheEntry>();
-const FIRST_SCENE_HOLD = 0.08;
-const SCENE_HOLD = 0.22;
-const SCENE_FADE = 0.12;
-const VIDEO_FADE = 0.12;
-const SCROLL_EASE = 0.24;
-const STILL_THRESHOLD = 0.0006;
-const MOBILE_SEGMENT_SCROLL_VH = 135;
-const MOBILE_STACK_EXTRA_VH = 100;
-const MOBILE_CANVAS_MAX_DPR = 2;
-const MAX_SPRITE_CACHE_ITEMS = 12;
-const CRITICAL_SPRITE_PRELOAD_SHEETS = 6;
-const SPRITE_LOOKAHEAD_SHEETS = 4;
-const BACKGROUND_WARMUP_CONCURRENCY = 3;
-
-const warmedSpriteSrcs = new Set<string>();
-
-function getSheetSrc(frames: FrameSequence, sheetIndex: number) {
-  return `${frames.basePath}/sheet_${String(sheetIndex + 1).padStart(4, '0')}.jpg`;
-}
-
-function preloadSpriteImage(src: string) {
-  if (warmedSpriteSrcs.has(src)) {
-    return Promise.resolve();
-  }
-
-  return new Promise<void>((resolve) => {
-    const image = new window.Image();
-    image.decoding = 'async';
-    image.onload = () => {
-      warmedSpriteSrcs.add(src);
-      resolve();
-    };
-    image.onerror = () => resolve();
-    image.src = src;
-  });
-}
-
-async function warmSpriteImages(srcs: string[], shouldCancel: () => boolean, concurrency = BACKGROUND_WARMUP_CONCURRENCY) {
-  let nextIndex = 0;
-
-  const runWorker = async () => {
-    while (!shouldCancel() && nextIndex < srcs.length) {
-      const src = srcs[nextIndex];
-      nextIndex += 1;
-      await preloadSpriteImage(src);
-    }
-  };
-
-  await Promise.all(Array.from({ length: concurrency }, runWorker));
-}
-
-function closeSprite(image: CanvasImageSource | undefined) {
-  if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
-    image.close();
-  }
-}
-
-function trimSpriteCache(keepSrcs: Set<string>) {
-  const removableEntries = [...spriteCache.entries()]
-    .filter(([src]) => !keepSrcs.has(src))
-    .sort(([, a], [, b]) => a.lastUsed - b.lastUsed);
-
-  while (spriteCache.size > MAX_SPRITE_CACHE_ITEMS && removableEntries.length > 0) {
-    const [src, entry] = removableEntries.shift()!;
-    closeSprite(entry.image);
-    spriteCache.delete(src);
-  }
-}
-
-function loadSprite(src: string, keepSrcs: Set<string>, onLoad?: (image: CanvasImageSource) => void) {
-  const cached = spriteCache.get(src);
-  if (cached) {
-    cached.lastUsed = Date.now();
-    cached.promise.then((image) => onLoad?.(image)).catch(() => undefined);
-    trimSpriteCache(keepSrcs);
-    return cached.promise;
-  }
-
-  const promise = new Promise<CanvasImageSource>((resolve, reject) => {
-    const image = new window.Image();
-    image.decoding = 'async';
-    image.onload = async () => {
-      try {
-        if ('createImageBitmap' in window) {
-          resolve(await window.createImageBitmap(image));
-          return;
-        }
-      } catch {
-        // If bitmap creation fails, the decoded image is still drawable.
-      }
-      resolve(image);
-    };
-    image.onerror = () => reject(new Error(`Unable to load sprite ${src}`));
-    image.src = src;
-  });
-
-  const entry: SpriteCacheEntry = { lastUsed: Date.now(), promise };
-  promise.then((image) => {
-    entry.image = image;
-    warmedSpriteSrcs.add(src);
-  }).catch(() => {
-    spriteCache.delete(src);
-  });
-  spriteCache.set(src, entry);
-  trimSpriteCache(keepSrcs);
-  promise.then((image) => onLoad?.(image)).catch(() => undefined);
-  return promise;
-}
-
-function drawCoverSpriteFrame(canvas: HTMLCanvasElement, image: CanvasImageSource, frames: FrameSequence, frameIndex: number) {
-  const context = canvas.getContext('2d');
-  if (!context) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, MOBILE_CANVAS_MAX_DPR);
-  const width = Math.max(1, Math.round(rect.width * dpr));
-  const height = Math.max(1, Math.round(rect.height * dpr));
-
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-
-  const imageRatio = frames.frameWidth / frames.frameHeight;
-  const canvasRatio = width / height;
-  let drawWidth = width;
-  let drawHeight = height;
-
-  if (imageRatio > canvasRatio) {
-    drawHeight = height;
-    drawWidth = height * imageRatio;
-  } else {
-    drawWidth = width;
-    drawHeight = width / imageRatio;
-  }
-
-  const framesPerSheet = frames.columns * frames.rows;
-  const sheetFrameIndex = frameIndex % framesPerSheet;
-  const sourceX = (sheetFrameIndex % frames.columns) * frames.frameWidth;
-  const sourceY = Math.floor(sheetFrameIndex / frames.columns) * frames.frameHeight;
-
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = 'medium';
-  context.clearRect(0, 0, width, height);
-  context.drawImage(
-    image,
-    sourceX,
-    sourceY,
-    frames.frameWidth,
-    frames.frameHeight,
-    (width - drawWidth) / 2,
-    (height - drawHeight) / 2,
-    drawWidth,
-    drawHeight,
-  );
-}
-
-function MobileScrubStack({ sceneLayers, frameSequences, posterSrcs }: MobileScrubStepProps) {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-  const sceneLayerRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const frameLayerRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastFrameRefs = useRef<number[]>([]);
-  const segmentCount = frameSequences.length;
-  const sceneCount = sceneLayers.length;
-
-  useEffect(() => {
-    const section = sectionRef.current;
-    if (!section || segmentCount === 0) return;
-
-    let rafId = 0;
-    let targetProgress = 0;
-    let displayProgress = 0;
-    let isCancelled = false;
-
-    const getSheetSrcAt = (sequenceIndex: number, sheetIndex: number) => {
-      const frames = frameSequences[sequenceIndex];
-      if (!frames) return null;
-      const clampedSheetIndex = Math.max(0, Math.min(frames.sheetCount - 1, sheetIndex));
-      return getSheetSrc(frames, clampedSheetIndex);
-    };
-
-    const getSequenceSheetSrcs = (sequenceIndex: number, startSheetIndex = 0, maxCount = Number.POSITIVE_INFINITY) => {
-      const frames = frameSequences[sequenceIndex];
-      if (!frames) return [];
-
-      const endSheetIndex = Math.min(frames.sheetCount, startSheetIndex + maxCount);
-      const srcs: string[] = [];
-      for (let sheetIndex = startSheetIndex; sheetIndex < endSheetIndex; sheetIndex += 1) {
-        srcs.push(getSheetSrc(frames, sheetIndex));
-      }
-      return srcs;
-    };
-
-    const getAllSheetSrcs = () => {
-      return frameSequences.flatMap((_, sequenceIndex) => getSequenceSheetSrcs(sequenceIndex));
-    };
-
-    const getKeepSrcs = (sequenceIndex: number, sheetIndex: number) => {
-      const keepSrcs = new Set<string>();
-      for (let index = sheetIndex - 1; index <= sheetIndex + SPRITE_LOOKAHEAD_SHEETS; index += 1) {
-        const src = getSheetSrcAt(sequenceIndex, index);
-        if (src) keepSrcs.add(src);
-      }
-
-      getSequenceSheetSrcs(sequenceIndex + 1, 0, 2).forEach((src) => keepSrcs.add(src));
-      return keepSrcs;
-    };
-
-    const drawFrameAt = (sequenceIndex: number, frameIndex: number) => {
-      const canvas = canvasRef.current;
-      const frames = frameSequences[sequenceIndex];
-      if (!canvas || !frames) return;
-
-      const sheetIndex = Math.floor(frameIndex / (frames.columns * frames.rows));
-      const keepSrcs = getKeepSrcs(sequenceIndex, sheetIndex);
-      const currentSheetSrc = getSheetSrc(frames, sheetIndex);
-      loadSprite(currentSheetSrc, keepSrcs, (image) => {
-        if (lastFrameRefs.current[sequenceIndex] === frameIndex) {
-          drawCoverSpriteFrame(canvas, image, frames, frameIndex);
-        }
-      });
-
-      keepSrcs.forEach((src) => {
-        if (src !== currentSheetSrc) {
-          loadSprite(src, keepSrcs);
-        }
-      });
-    };
-
-    const updateTargetFromScroll = () => {
-      const viewportHeight = window.innerHeight || 1;
-      const rect = section.getBoundingClientRect();
-      const scrollDistance = Math.max(section.offsetHeight - viewportHeight, 1);
-      targetProgress = Math.max(0, Math.min(1, -rect.top / scrollDistance));
-    };
-
-    const renderProgress = () => {
-      const delta = targetProgress - displayProgress;
-      if (Math.abs(delta) > STILL_THRESHOLD) {
-        displayProgress += delta * SCROLL_EASE;
-      } else {
-        displayProgress = targetProgress;
-      }
-
-      const totalProgress = displayProgress;
-      const scaledProgress = totalProgress * segmentCount;
-      const activeIndex = Math.min(segmentCount - 1, Math.floor(scaledProgress));
-      const segmentProgress = totalProgress >= 1 ? 1 : scaledProgress - activeIndex;
-      const sceneHold = activeIndex === 0 ? FIRST_SCENE_HOLD : SCENE_HOLD;
-      const videoStart = sceneHold;
-      const videoEnd = 1 - VIDEO_FADE;
-      const videoProgress = Math.max(0, Math.min(1, (segmentProgress - videoStart) / (videoEnd - videoStart)));
-      const sceneFadeProgress = Math.max(0, Math.min(1, (segmentProgress - sceneHold) / SCENE_FADE));
-      const nextSceneProgress = Math.max(0, Math.min(1, (segmentProgress - videoEnd) / VIDEO_FADE));
-
-      sceneLayerRefs.current.forEach((layer, index) => {
-        if (!layer) return;
-        let opacity = 0;
-        if (index === activeIndex) {
-          opacity = 1 - sceneFadeProgress;
-        } else if (index === activeIndex + 1) {
-          opacity = nextSceneProgress;
-        } else if (totalProgress >= 1 && index === sceneCount - 1) {
-          opacity = 1;
-        }
-        layer.style.opacity = String(opacity);
-      });
-
-      const frameLayer = frameLayerRef.current;
-      if (frameLayer) {
-        const fadeIn = Math.max(0, Math.min(1, (segmentProgress - sceneHold) / SCENE_FADE));
-        const fadeOut = Math.max(0, Math.min(1, (1 - segmentProgress) / VIDEO_FADE));
-        frameLayer.style.backgroundImage = `url(${posterSrcs[activeIndex]})`;
-        frameLayer.style.opacity = String(Math.min(fadeIn, fadeOut));
-      }
-
-      const activeFrames = frameSequences[activeIndex];
-      if (activeFrames) {
-        const frameIndex = Math.min(
-          activeFrames.count - 1,
-          Math.max(0, Math.round(videoProgress * (activeFrames.count - 1))),
-        );
-        if (frameIndex !== lastFrameRefs.current[activeIndex]) {
-          lastFrameRefs.current[activeIndex] = frameIndex;
-          drawFrameAt(activeIndex, frameIndex);
-        }
-      }
-
-      if (Math.abs(targetProgress - displayProgress) > STILL_THRESHOLD) {
-        rafId = window.requestAnimationFrame(renderProgress);
-      } else {
-        rafId = 0;
-      }
-    };
-
-    const requestSync = () => {
-      updateTargetFromScroll();
-      if (rafId !== 0) return;
-      rafId = window.requestAnimationFrame(renderProgress);
-    };
-
-    lastFrameRefs.current = frameSequences.map(() => -1);
-    const firstSheetSrcs = frameSequences.map((_, sequenceIndex) => getSequenceSheetSrcs(sequenceIndex, 0, 1)).flat();
-    const firstSequenceSrcs = getSequenceSheetSrcs(0, 0, CRITICAL_SPRITE_PRELOAD_SHEETS);
-    const criticalSrcs = Array.from(new Set([...firstSheetSrcs, ...firstSequenceSrcs]));
-    const criticalKeepSrcs = new Set(criticalSrcs);
-
-    criticalSrcs.forEach((src) => {
-      loadSprite(src, criticalKeepSrcs, () => {
-        if (lastFrameRefs.current[0] <= 0) {
-          lastFrameRefs.current[0] = 0;
-          drawFrameAt(0, 0);
-        }
-      });
-    });
-    drawFrameAt(0, 0);
-
-    const warmupTimer = window.setTimeout(() => {
-      const firstSheetsForEverySequence = frameSequences.flatMap((_, sequenceIndex) =>
-        getSequenceSheetSrcs(sequenceIndex, 0, CRITICAL_SPRITE_PRELOAD_SHEETS),
-      );
-      const backgroundSrcs = Array.from(new Set([...firstSheetsForEverySequence, ...getAllSheetSrcs()]));
-      void warmSpriteImages(backgroundSrcs, () => isCancelled);
-    }, 120);
-
-    window.addEventListener('scroll', requestSync, { passive: true });
-    window.addEventListener('resize', requestSync);
-    requestSync();
-
-    return () => {
-      isCancelled = true;
-      window.clearTimeout(warmupTimer);
-      window.removeEventListener('scroll', requestSync);
-      window.removeEventListener('resize', requestSync);
-      if (rafId !== 0) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
-  }, [frameSequences, posterSrcs, sceneCount, segmentCount]);
-
-  return (
-    <div
-      ref={sectionRef}
-      className={styles.mobileStackScroll}
-      style={{ height: `${segmentCount * MOBILE_SEGMENT_SCROLL_VH + MOBILE_STACK_EXTRA_VH}vh` }}
-    >
-      <div className={styles.mobileStackStage}>
-        {sceneLayers.map((sceneLayer, index) => (
-          <div
-            key={`scene-${index}`}
-            ref={(node) => {
-              sceneLayerRefs.current[index] = node;
-            }}
-            className={styles.mobileSceneLayer}
-            style={{ zIndex: (sceneLayers.length - index) * 2 }}
-          >
-            {sceneLayer}
-          </div>
-        ))}
-        <div
-          ref={frameLayerRef}
-          className={styles.mobileVideoLayer}
-          style={{
-            backgroundImage: `url(${posterSrcs[0]})`,
-            opacity: 0,
-            zIndex: sceneLayers.length * 2 + 1,
-          }}
-        >
-          <canvas ref={canvasRef} className={styles.mobileScrubCanvas} />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function CinematicExperience({
   locale,
@@ -445,6 +57,7 @@ export function CinematicExperience({
   contact,
 }: Props) {
   const sceneList = useMemo(() => [hero, ...scenes], [hero, scenes]);
+  const mobileFrames = useMemo(() => transitions.map(transition => resolveFrameSequence(transition.video)), [transitions]);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [hasResolvedViewport, setHasResolvedViewport] = useState(false);
@@ -722,8 +335,8 @@ export function CinematicExperience({
     return (
       <MobileScrubStack
         sceneLayers={sceneList.map((scene) => renderScene(scene, scene.id === hero.id))}
-        frameSequences={transitions.map((transition) => resolveFrameSequence(transition.video))}
-        posterSrcs={transitions.map((transition) => resolveImage(transition.poster))}
+        frameSequences={mobileFrames}
+        loadingLabel={locale === 'es' ? 'Preparando la animación' : 'Preparing the animation'}
       />
     );
   };
@@ -754,6 +367,13 @@ export function CinematicExperience({
         <div className={styles.desktopStage} ref={sceneContainerRef}>
           <div className={`${styles.manualFadeLayer} ${isManualFading ? 'isVisible' : ''}`.trim()} />
           {renderScene(activeScene, currentSceneIndex === 0)}
+          {sceneList[currentSceneIndex + 1] ? <div hidden aria-hidden="true">
+            <Image src={resolveImage(sceneList[currentSceneIndex + 1].image)} alt="" fill sizes="100vw" loading="eager" />
+          </div> : null}
+          {transitions[currentSceneIndex] && activeTransitionIndex === null ? (
+            <video key={currentSceneIndex} hidden aria-hidden="true" muted playsInline preload="auto"
+              src={resolveVideo(transitions[currentSceneIndex].video)} />
+          ) : null}
           {activeTransitionIndex !== null ? (
             <div className={styles.transitionFixedLayer}>
               <TransitionVideo

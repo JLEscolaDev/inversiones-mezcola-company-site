@@ -1,3 +1,5 @@
+import motionPreviews from './motion-previews.json';
+
 export const assets = {
   images: {
     forest: '/images/Photo1Forest.png',
@@ -11,23 +13,23 @@ export const assets = {
   },
 
   videos: {
-    forestToLake: '/videos/Transition1ForestToLake.mp4',
-    lakeToWaterfall: '/videos/Transition2LakeToWaterfall.mp4',
-    waterfallToHouse: '/videos/Transition3WaterfallToHouse.mp4',
-    houseToRoom1: '/videos/Transition4HouseToRoom1.mp4',
-    room1ToRoom2: '/videos/Transition5Room1ToRoom2Wall.mp4',
-    room2ToRoom3: '/videos/Transition6Room2ToRoom3ThroughAir.mp4',
-    room3ToFinal: '/videos/Transition7Room3ToFinalOfficePaper.mp4',
+    forestToLake: '/videos-web-v1/Transition1ForestToLake.mp4',
+    lakeToWaterfall: '/videos-web-v1/Transition2LakeToWaterfall.mp4',
+    waterfallToHouse: '/videos-web-v1/Transition3WaterfallToHouse.mp4',
+    houseToRoom1: '/videos-web-v1/Transition4HouseToRoom1.mp4',
+    room1ToRoom2: '/videos-web-v1/Transition5Room1ToRoom2Wall.mp4',
+    room2ToRoom3: '/videos-web-v1/Transition6Room2ToRoom3ThroughAir.mp4',
+    room3ToFinal: '/videos-web-v1/Transition7Room3ToFinalOfficePaper.mp4',
   },
 
   frames: {
-    forestToLake: { basePath: '/sprites-mobile-v4/forestToLake', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    lakeToWaterfall: { basePath: '/sprites-mobile-v4/lakeToWaterfall', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    waterfallToHouse: { basePath: '/sprites-mobile-v4/waterfallToHouse', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    houseToRoom1: { basePath: '/sprites-mobile-v4/houseToRoom1', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    room1ToRoom2: { basePath: '/sprites-mobile-v4/room1ToRoom2', count: 127, sheetCount: 64, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    room2ToRoom3: { basePath: '/sprites-mobile-v4/room2ToRoom3', count: 184, sheetCount: 92, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
-    room3ToFinal: { basePath: '/sprites-mobile-v4/room3ToFinal', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1 },
+    forestToLake: { basePath: '/sprites-mobile-v4/forestToLake', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.forestToLake },
+    lakeToWaterfall: { basePath: '/sprites-mobile-v4/lakeToWaterfall', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.lakeToWaterfall },
+    waterfallToHouse: { basePath: '/sprites-mobile-v4/waterfallToHouse', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.waterfallToHouse },
+    houseToRoom1: { basePath: '/sprites-mobile-v4/houseToRoom1', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.houseToRoom1 },
+    room1ToRoom2: { basePath: '/sprites-mobile-v4/room1ToRoom2', count: 127, sheetCount: 64, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room1ToRoom2 },
+    room2ToRoom3: { basePath: '/sprites-mobile-v4/room2ToRoom3', count: 184, sheetCount: 92, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room2ToRoom3 },
+    room3ToFinal: { basePath: '/sprites-mobile-v4/room3ToFinal', count: 92, sheetCount: 46, frameWidth: 900, frameHeight: 1600, columns: 2, rows: 1, preview: motionPreviews.room3ToFinal },
   },
 } as const;
 
